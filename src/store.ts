@@ -1,61 +1,53 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Paper, Question, AnyBlock, BlockType, SectionBlock, MCQBlock, ShortBlock, LongBlock, FillBlankBlock } from './types';
+import type { Paper, Question, Section, AnyBlock, BlockType, User, MCQBlock, ShortBlock, LongBlock, FillBlankBlock } from './types';
 import { supabase } from './supabase';
 
 interface AppState {
+  user: User | null;
   papers: Paper[];
+  sections: Map<string, Section[]>;
   questions: Question[];
   currentPaperId: string | null;
-  user: { id: string; name: string; schoolName: string } | null;
   loading: boolean;
   
-  setUser: (user: { id: string; name: string; schoolName: string }) => void;
+  setUser: (user: User | null) => void;
   setCurrentPaper: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   getState: () => AppState;
   
   fetchPapers: () => Promise<void>;
-  fetchQuestions: () => Promise<void>;
+  fetchSections: (paperId: string) => Promise<void>;
+  fetchQuestions: (sectionId?: string) => Promise<void>;
+  
   createPaper: (title: string, subject: string, grade: string) => Promise<string>;
   updatePaper: (id: string, updates: Partial<Paper>) => Promise<void>;
   deletePaper: (id: string) => Promise<void>;
   duplicatePaper: (id: string) => string;
   
-  addBlock: (paperId: string, type: BlockType) => Promise<void>;
-  updateBlock: <T extends AnyBlock>(paperId: string, blockId: string, updates: Partial<T>) => Promise<void>;
-  deleteBlock: (paperId: string, blockId: string) => Promise<void>;
-  reorderBlocks: (paperId: string, blocks: AnyBlock[]) => Promise<void>;
+  createSection: (paperId: string, title: string) => Promise<string>;
+  updateSection: (paperId: string, sectionId: string, updates: Partial<Section>) => Promise<void>;
+  deleteSection: (paperId: string, sectionId: string) => Promise<void>;
+  reorderSections: (paperId: string, sections: Section[]) => Promise<void>;
   
-  saveQuestionToBank: (question: Omit<Question, 'id' | 'createdAt'>) => Promise<void>;
-  deleteQuestion: (id: string) => Promise<void>;
+  createQuestion: (sectionId: string, question: Omit<Question, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateQuestion: (questionId: string, updates: Partial<Question>) => Promise<void>;
+  deleteQuestion: (questionId: string) => Promise<void>;
+  
+  saveQuestionToBank: (question: Omit<Question, 'id' | 'userId' | 'sectionId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  deleteQuestionFromBank: (questionId: string) => Promise<void>;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 15);
-
-const createDefaultBlock = (type: BlockType): AnyBlock => {
-  const base = { id: generateId() };
-  switch (type) {
-    case 'section':
-      return { ...base, type: 'section', title: 'Section A', instruction: '' } as SectionBlock;
-    case 'mcq':
-      return { ...base, type: 'mcq', question: '', options: ['', '', '', ''], correctAnswer: 0, marks: 1 } as MCQBlock;
-    case 'short':
-      return { ...base, type: 'short', question: '', lines: 3, marks: 2 } as ShortBlock;
-    case 'long':
-      return { ...base, type: 'long', question: '', marks: 5 } as LongBlock;
-    case 'fillblank':
-      return { ...base, type: 'fillblank', text: '', answers: '', marks: 1 } as FillBlankBlock;
-  }
-};
+const generateId = () => crypto.randomUUID();
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
+      user: null,
       papers: [],
+      sections: new Map(),
       questions: [],
       currentPaperId: null,
-      user: null,
       loading: false,
 
       setUser: (user) => set({ user }),
@@ -87,11 +79,15 @@ export const useStore = create<AppState>()(
         if (!error && data) {
           const papers: Paper[] = data.map(p => ({
             id: p.id,
+            userId: p.user_id,
             title: p.title,
             subject: p.subject,
             grade: p.grade,
-            schoolName: p.school_name,
-            blocks: p.blocks || [],
+            schoolName: p.school_name || '',
+            description: p.description,
+            timeLimit: p.time_limit,
+            totalMarks: p.total_marks || 0,
+            isPublished: p.is_published || false,
             createdAt: new Date(p.created_at).getTime(),
             updatedAt: new Date(p.updated_at).getTime(),
           }));
@@ -100,26 +96,65 @@ export const useStore = create<AppState>()(
         set({ loading: false });
       },
 
-      fetchQuestions: async () => {
+      fetchSections: async (paperId: string) => {
+        const { data, error } = await supabase
+          .from('sections')
+          .select('*')
+          .eq('paper_id', paperId)
+          .order('order_index', { ascending: true });
+
+        if (!error && data) {
+          const sections: Section[] = data.map(s => ({
+            id: s.id,
+            paperId: s.paper_id,
+            title: s.title,
+            instruction: s.instruction,
+            orderIndex: s.order_index,
+            createdAt: new Date(s.created_at).getTime(),
+            updatedAt: new Date(s.updated_at).getTime(),
+          }));
+          set((state) => {
+            const newSections = new Map(state.sections);
+            newSections.set(paperId, sections);
+            return { sections: newSections };
+          });
+        }
+      },
+
+      fetchQuestions: async (sectionId?: string) => {
         const { user } = get();
         if (!user?.id) return;
 
-        const { data, error } = await supabase
+        let query = supabase
           .from('questions')
           .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .eq('user_id', user.id);
+
+        if (sectionId) {
+          query = query.eq('section_id', sectionId);
+        } else {
+          query = query.is('section_id', null);
+        }
+
+        const { data, error } = await query.order('order_index', { ascending: true });
 
         if (!error && data) {
           const questions: Question[] = data.map(q => ({
             id: q.id,
-            type: q.type,
-            question: q.question_text,
+            userId: q.user_id,
+            sectionId: q.section_id,
+            questionText: q.question_text,
+            questionType: q.question_type,
             options: q.options,
             correctAnswer: q.correct_answer,
             marks: q.marks,
             subject: q.subject,
+            topic: q.topic,
+            difficulty: q.difficulty,
+            explanation: q.explanation,
+            orderIndex: q.order_index,
             createdAt: new Date(q.created_at).getTime(),
+            updatedAt: new Date(q.updated_at).getTime(),
           }));
           set({ questions });
         }
@@ -127,15 +162,19 @@ export const useStore = create<AppState>()(
 
       createPaper: async (title, subject, grade) => {
         const { user } = get();
+        if (!user?.id) return '';
+        
         const id = generateId();
         
         const newPaper: Paper = {
           id,
+          userId: user.id,
           title,
           subject,
           grade,
-          schoolName: user?.schoolName || 'My School',
-          blocks: [],
+          schoolName: user.schoolName || '',
+          totalMarks: 0,
+          isPublished: false,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -150,7 +189,8 @@ export const useStore = create<AppState>()(
             subject,
             grade,
             school_name: newPaper.schoolName,
-            blocks: [],
+            total_marks: 0,
+            is_published: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
@@ -169,13 +209,19 @@ export const useStore = create<AppState>()(
         }));
 
         if (user?.id) {
-          await supabase.from('papers').update({
-            title: updates.title,
-            subject: updates.subject,
-            grade: updates.grade,
-            blocks: updates.blocks,
+          const supabaseUpdates: Record<string, unknown> = {
             updated_at: new Date().toISOString(),
-          }).eq('id', id);
+          };
+          if (updates.title !== undefined) supabaseUpdates.title = updates.title;
+          if (updates.subject !== undefined) supabaseUpdates.subject = updates.subject;
+          if (updates.grade !== undefined) supabaseUpdates.grade = updates.grade;
+          if (updates.schoolName !== undefined) supabaseUpdates.school_name = updates.schoolName;
+          if (updates.description !== undefined) supabaseUpdates.description = updates.description;
+          if (updates.timeLimit !== undefined) supabaseUpdates.time_limit = updates.timeLimit;
+          if (updates.totalMarks !== undefined) supabaseUpdates.total_marks = updates.totalMarks;
+          if (updates.isPublished !== undefined) supabaseUpdates.is_published = updates.isPublished;
+
+          await supabase.from('papers').update(supabaseUpdates).eq('id', id);
         }
       },
 
@@ -200,7 +246,7 @@ export const useStore = create<AppState>()(
           ...paper,
           id: newId,
           title: `${paper.title} (Copy)`,
-          blocks: paper.blocks.map((b) => ({ ...b, id: generateId() })),
+          isPublished: false,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -208,103 +254,222 @@ export const useStore = create<AppState>()(
         return newId;
       },
 
-      addBlock: async (paperId, type) => {
-        const block = createDefaultBlock(type);
-        const paper = get().papers.find(p => p.id === paperId);
-        if (!paper) return;
+      createSection: async (paperId, title) => {
+        const id = generateId();
+        const { sections } = get();
+        const paperSections = sections.get(paperId) || [];
+        const orderIndex = paperSections.length;
 
-        const newBlocks = [...paper.blocks, block];
-        
-        set((state) => ({
-          papers: state.papers.map((p) =>
-            p.id === paperId
-              ? { ...p, blocks: newBlocks, updatedAt: Date.now() }
-              : p
-          ),
-        }));
+        const newSection: Section = {
+          id,
+          paperId,
+          title,
+          instruction: '',
+          orderIndex,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
 
-        await get().updatePaper(paperId, { blocks: newBlocks });
+        set((state) => {
+          const newSections = new Map(state.sections);
+          newSections.set(paperId, [...paperSections, newSection]);
+          return { sections: newSections };
+        });
+
+        await supabase.from('sections').insert({
+          id,
+          paper_id: paperId,
+          title,
+          instruction: '',
+          order_index: orderIndex,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        return id;
       },
 
-      updateBlock: async (paperId, blockId, updates) => {
-        const paper = get().papers.find(p => p.id === paperId);
-        if (!paper) return;
+      updateSection: async (paperId, sectionId, updates) => {
+        set((state) => {
+          const newSections = new Map(state.sections);
+          const paperSections = newSections.get(paperId) || [];
+          newSections.set(paperId, paperSections.map(s =>
+            s.id === sectionId ? { ...s, ...updates, updatedAt: Date.now() } : s
+          ));
+          return { sections: newSections };
+        });
 
-        const newBlocks = paper.blocks.map((b) =>
-          b.id === blockId ? { ...b, ...updates } as AnyBlock : b
-        );
+        const supabaseUpdates: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (updates.title !== undefined) supabaseUpdates.title = updates.title;
+        if (updates.instruction !== undefined) supabaseUpdates.instruction = updates.instruction;
+        if (updates.orderIndex !== undefined) supabaseUpdates.order_index = updates.orderIndex;
 
-        set((state) => ({
-          papers: state.papers.map((p) =>
-            p.id === paperId
-              ? { ...p, blocks: newBlocks, updatedAt: Date.now() }
-              : p
-          ),
-        }));
-
-        await get().updatePaper(paperId, { blocks: newBlocks });
+        await supabase.from('sections').update(supabaseUpdates).eq('id', sectionId);
       },
 
-      deleteBlock: async (paperId, blockId) => {
-        const paper = get().papers.find(p => p.id === paperId);
-        if (!paper) return;
+      deleteSection: async (paperId, sectionId) => {
+        set((state) => {
+          const newSections = new Map(state.sections);
+          const paperSections = newSections.get(paperId) || [];
+          newSections.set(paperId, paperSections.filter(s => s.id !== sectionId));
+          return { sections: newSections };
+        });
 
-        const newBlocks = paper.blocks.filter((b) => b.id !== blockId);
-
-        set((state) => ({
-          papers: state.papers.map((p) =>
-            p.id === paperId
-              ? { ...p, blocks: newBlocks, updatedAt: Date.now() }
-              : p
-          ),
-        }));
-
-        await get().updatePaper(paperId, { blocks: newBlocks });
+        await supabase.from('sections').delete().eq('id', sectionId);
       },
 
-      reorderBlocks: async (paperId, blocks) => {
+      reorderSections: async (paperId, sectionsList) => {
+        set((state) => {
+          const newSections = new Map(state.sections);
+          newSections.set(paperId, sectionsList);
+          return { sections: newSections };
+        });
+
+        const updates = sectionsList.map((s, i) => ({
+          id: s.id,
+          order_index: i,
+        }));
+
+        await supabase.from('sections').upsert(updates);
+      },
+
+      createQuestion: async (sectionId, question) => {
+        const { user } = get();
+        if (!user?.id) return '';
+
+        const id = generateId();
+        const { questions } = get();
+        const sectionQuestions = questions.filter(q => q.sectionId === sectionId);
+        const orderIndex = sectionQuestions.length;
+
+        const newQuestion: Question = {
+          id,
+          userId: user.id,
+          sectionId,
+          questionText: question.questionText,
+          questionType: question.questionType,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          marks: question.marks,
+          subject: question.subject,
+          topic: question.topic,
+          difficulty: question.difficulty,
+          explanation: question.explanation,
+          orderIndex,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        set((state) => ({ questions: [...state.questions, newQuestion] }));
+
+        await supabase.from('questions').insert({
+          id,
+          user_id: user.id,
+          section_id: sectionId,
+          question_text: question.questionText,
+          question_type: question.questionType,
+          options: question.options,
+          correct_answer: question.correctAnswer,
+          marks: question.marks,
+          subject: question.subject,
+          topic: question.topic,
+          difficulty: question.difficulty,
+          explanation: question.explanation,
+          order_index: orderIndex,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        return id;
+      },
+
+      updateQuestion: async (questionId, updates) => {
         set((state) => ({
-          papers: state.papers.map((p) =>
-            p.id === paperId ? { ...p, blocks, updatedAt: Date.now() } : p
+          questions: state.questions.map(q =>
+            q.id === questionId ? { ...q, ...updates, updatedAt: Date.now() } : q
           ),
         }));
 
-        await get().updatePaper(paperId, { blocks });
+        const supabaseUpdates: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (updates.questionText !== undefined) supabaseUpdates.question_text = updates.questionText;
+        if (updates.questionType !== undefined) supabaseUpdates.question_type = updates.questionType;
+        if (updates.options !== undefined) supabaseUpdates.options = updates.options;
+        if (updates.correctAnswer !== undefined) supabaseUpdates.correct_answer = updates.correctAnswer;
+        if (updates.marks !== undefined) supabaseUpdates.marks = updates.marks;
+        if (updates.subject !== undefined) supabaseUpdates.subject = updates.subject;
+        if (updates.topic !== undefined) supabaseUpdates.topic = updates.topic;
+        if (updates.difficulty !== undefined) supabaseUpdates.difficulty = updates.difficulty;
+        if (updates.explanation !== undefined) supabaseUpdates.explanation = updates.explanation;
+        if (updates.orderIndex !== undefined) supabaseUpdates.order_index = updates.orderIndex;
+
+        await supabase.from('questions').update(supabaseUpdates).eq('id', questionId);
+      },
+
+      deleteQuestion: async (questionId) => {
+        set((state) => ({
+          questions: state.questions.filter(q => q.id !== questionId),
+        }));
+
+        await supabase.from('questions').delete().eq('id', questionId);
       },
 
       saveQuestionToBank: async (question) => {
         const { user } = get();
+        if (!user?.id) return '';
+
+        const id = generateId();
+
         const newQuestion: Question = {
-          ...question,
-          id: generateId(),
+          id,
+          userId: user.id,
+          sectionId: undefined,
+          questionText: question.questionText,
+          questionType: question.questionType,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          marks: question.marks,
+          subject: question.subject,
+          topic: question.topic,
+          difficulty: question.difficulty,
+          explanation: question.explanation,
+          orderIndex: 0,
           createdAt: Date.now(),
+          updatedAt: Date.now(),
         };
 
         set((state) => ({ questions: [newQuestion, ...state.questions] }));
 
-        if (user?.id) {
-          await supabase.from('questions').insert({
-            id: newQuestion.id,
-            user_id: user.id,
-            type: question.type,
-            question_text: question.question,
-            options: question.options,
-            correct_answer: question.correctAnswer,
-            marks: question.marks,
-            subject: question.subject,
-            created_at: new Date().toISOString(),
-          });
-        }
+        await supabase.from('questions').insert({
+          id,
+          user_id: user.id,
+          section_id: null,
+          question_text: question.questionText,
+          question_type: question.questionType,
+          options: question.options,
+          correct_answer: question.correctAnswer,
+          marks: question.marks,
+          subject: question.subject,
+          topic: question.topic,
+          difficulty: question.difficulty,
+          explanation: question.explanation,
+          order_index: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        return id;
       },
 
-      deleteQuestion: async (id) => {
-        const { user } = get();
-        
-        set((state) => ({ questions: state.questions.filter((q) => q.id !== id) }));
+      deleteQuestionFromBank: async (questionId) => {
+        set((state) => ({
+          questions: state.questions.filter(q => q.id !== questionId),
+        }));
 
-        if (user?.id) {
-          await supabase.from('questions').delete().eq('id', id);
-        }
+        await supabase.from('questions').delete().eq('id', questionId);
       },
     }),
     {

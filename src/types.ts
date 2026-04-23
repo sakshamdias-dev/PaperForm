@@ -1,14 +1,8 @@
-export type BlockType = 'section' | 'mcq' | 'short' | 'long' | 'fillblank';
+export type BlockType = 'mcq' | 'short' | 'long' | 'fillblank';
 
 export interface Block {
   id: string;
   type: BlockType;
-}
-
-export interface SectionBlock extends Block {
-  type: 'section';
-  title: string;
-  instruction: string;
 }
 
 export interface MCQBlock extends Block {
@@ -39,28 +33,59 @@ export interface FillBlankBlock extends Block {
   marks: number;
 }
 
-export type AnyBlock = SectionBlock | MCQBlock | ShortBlock | LongBlock | FillBlankBlock;
+export type AnyBlock = MCQBlock | ShortBlock | LongBlock | FillBlankBlock;
+
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  schoolName: string;
+  avatarUrl?: string;
+  createdAt: number;
+  updatedAt: number;
+}
 
 export interface Paper {
   id: string;
+  userId: string;
   title: string;
   subject: string;
   grade: string;
   schoolName: string;
-  blocks: AnyBlock[];
+  description?: string;
+  timeLimit?: number;
+  totalMarks: number;
+  isPublished: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Section {
+  id: string;
+  paperId: string;
+  title: string;
+  instruction?: string;
+  orderIndex: number;
   createdAt: number;
   updatedAt: number;
 }
 
 export interface Question {
   id: string;
-  type: BlockType;
-  question: string;
+  userId: string;
+  sectionId?: string;
+  questionText: string;
+  questionType: BlockType;
   options?: string[];
-  correctAnswer?: number;
+  correctAnswer?: string;
   marks: number;
-  subject: string;
+  subject?: string;
+  topic?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  explanation?: string;
+  orderIndex: number;
   createdAt: number;
+  updatedAt: number;
 }
 
 export type Subject = 'Mathematics' | 'Science' | 'English' | 'History' | 'Geography' | 'Physics' | 'Chemistry' | 'Biology' | 'Other';
