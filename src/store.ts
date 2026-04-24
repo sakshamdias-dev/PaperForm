@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Paper, Question, Section, AnyBlock, BlockType, User, MCQBlock, ShortBlock, LongBlock, FillBlankBlock } from './types';
+import type { Paper, Question, Section, User, BlockType, AnyBlock, SectionBlock, MCQBlock, ShortBlock, LongBlock, FillBlankBlock } from './types';
 import { supabase } from './supabase';
 
 interface AppState {
@@ -20,7 +20,7 @@ interface AppState {
   fetchSections: (paperId: string) => Promise<void>;
   fetchQuestions: (sectionId?: string) => Promise<void>;
   
-  createPaper: (title: string, subject: string, grade: string) => Promise<string>;
+  createPaper: (title: string, subject: string, grade: string, instructions?: string, duration?: number, course?: string, examDate?: string, maxMarks?: number) => Promise<string>;
   updatePaper: (id: string, updates: Partial<Paper>) => Promise<void>;
   deletePaper: (id: string) => Promise<void>;
   duplicatePaper: (id: string) => string;
@@ -36,9 +36,30 @@ interface AppState {
   
   saveQuestionToBank: (question: Omit<Question, 'id' | 'userId' | 'sectionId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   deleteQuestionFromBank: (questionId: string) => Promise<void>;
+  
+  addBlock: (paperId: string, type: BlockType) => Promise<void>;
+  updateBlock: (paperId: string, blockId: string, updates: Partial<AnyBlock>) => Promise<void>;
+  deleteBlock: (paperId: string, blockId: string) => Promise<void>;
+  reorderBlocks: (paperId: string, blocks: AnyBlock[]) => Promise<void>;
 }
 
 const generateId = () => crypto.randomUUID();
+
+const createDefaultBlock = (type: BlockType): AnyBlock => {
+  const base = { id: generateId() };
+  switch (type) {
+    case 'section':
+      return { ...base, type: 'section', title: 'Section A', instruction: '' } as SectionBlock;
+    case 'mcq':
+      return { ...base, type: 'mcq', question: '', options: ['', '', '', ''], correctAnswer: 0, marks: 1 } as MCQBlock;
+    case 'short':
+      return { ...base, type: 'short', question: '', lines: 3, marks: 2 } as ShortBlock;
+    case 'long':
+      return { ...base, type: 'long', question: '', marks: 5 } as LongBlock;
+    case 'fillblank':
+      return { ...base, type: 'fillblank', text: '', answers: '', marks: 1 } as FillBlankBlock;
+  }
+};
 
 export const useStore = create<AppState>()(
   persist(
@@ -84,10 +105,14 @@ export const useStore = create<AppState>()(
             subject: p.subject,
             grade: p.grade,
             schoolName: p.school_name || '',
-            description: p.description,
-            timeLimit: p.time_limit,
+            instructions: p.instructions,
+            duration: p.duration,
+            course: p.course,
+            examDate: p.exam_date,
+            maxMarks: p.max_marks,
             totalMarks: p.total_marks || 0,
             isPublished: p.is_published || false,
+            blocks: p.blocks || [],
             createdAt: new Date(p.created_at).getTime(),
             updatedAt: new Date(p.updated_at).getTime(),
           }));
@@ -160,7 +185,7 @@ export const useStore = create<AppState>()(
         }
       },
 
-      createPaper: async (title, subject, grade) => {
+      createPaper: async (title, subject, grade, instructions, duration, course, examDate, maxMarks) => {
         const { user } = get();
         if (!user?.id) return '';
         
@@ -173,8 +198,14 @@ export const useStore = create<AppState>()(
           subject,
           grade,
           schoolName: user.schoolName || '',
+          instructions: instructions || '',
+          duration: duration,
+          course: course || 'K12',
+          examDate: examDate,
+          maxMarks: maxMarks,
           totalMarks: 0,
           isPublished: false,
+          blocks: [],
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -189,6 +220,12 @@ export const useStore = create<AppState>()(
             subject,
             grade,
             school_name: newPaper.schoolName,
+            instructions: instructions || '',
+            duration: duration,
+            course: course || 'K12',
+            exam_date: examDate,
+            max_marks: maxMarks,
+            blocks: [],
             total_marks: 0,
             is_published: false,
             created_at: new Date().toISOString(),
@@ -216,10 +253,14 @@ export const useStore = create<AppState>()(
           if (updates.subject !== undefined) supabaseUpdates.subject = updates.subject;
           if (updates.grade !== undefined) supabaseUpdates.grade = updates.grade;
           if (updates.schoolName !== undefined) supabaseUpdates.school_name = updates.schoolName;
-          if (updates.description !== undefined) supabaseUpdates.description = updates.description;
-          if (updates.timeLimit !== undefined) supabaseUpdates.time_limit = updates.timeLimit;
+          if (updates.instructions !== undefined) supabaseUpdates.instructions = updates.instructions;
+          if (updates.duration !== undefined) supabaseUpdates.duration = updates.duration;
+          if (updates.course !== undefined) supabaseUpdates.course = updates.course;
+          if (updates.examDate !== undefined) supabaseUpdates.exam_date = updates.examDate;
+          if (updates.maxMarks !== undefined) supabaseUpdates.max_marks = updates.maxMarks;
           if (updates.totalMarks !== undefined) supabaseUpdates.total_marks = updates.totalMarks;
           if (updates.isPublished !== undefined) supabaseUpdates.is_published = updates.isPublished;
+          if (updates.blocks !== undefined) supabaseUpdates.blocks = updates.blocks;
 
           await supabase.from('papers').update(supabaseUpdates).eq('id', id);
         }
@@ -470,6 +511,70 @@ export const useStore = create<AppState>()(
         }));
 
         await supabase.from('questions').delete().eq('id', questionId);
+      },
+
+      addBlock: async (paperId, type) => {
+        const block = createDefaultBlock(type);
+        const paper = get().papers.find(p => p.id === paperId);
+        if (!paper) return;
+
+        const newBlocks = [...(paper.blocks || []), block];
+        
+        set((state) => ({
+          papers: state.papers.map((p) =>
+            p.id === paperId
+              ? { ...p, blocks: newBlocks, updatedAt: Date.now() }
+              : p
+          ),
+        }));
+
+        await get().updatePaper(paperId, { blocks: newBlocks });
+      },
+
+      updateBlock: async (paperId: string, blockId: string, updates: Partial<AnyBlock>) => {
+        const paper = get().papers.find(p => p.id === paperId);
+        if (!paper) return;
+
+        const newBlocks = (paper.blocks || []).map((b) =>
+          b.id === blockId ? { ...b, ...updates } as AnyBlock : b
+        );
+
+        set((state) => ({
+          papers: state.papers.map((p) =>
+            p.id === paperId
+              ? { ...p, blocks: newBlocks, updatedAt: Date.now() }
+              : p
+          ),
+        }));
+
+        await get().updatePaper(paperId, { blocks: newBlocks });
+      },
+
+      deleteBlock: async (paperId, blockId) => {
+        const paper = get().papers.find(p => p.id === paperId);
+        if (!paper) return;
+
+        const newBlocks = (paper.blocks || []).filter((b) => b.id !== blockId);
+
+        set((state) => ({
+          papers: state.papers.map((p) =>
+            p.id === paperId
+              ? { ...p, blocks: newBlocks, updatedAt: Date.now() }
+              : p
+          ),
+        }));
+
+        await get().updatePaper(paperId, { blocks: newBlocks });
+      },
+
+      reorderBlocks: async (paperId, blocks) => {
+        set((state) => ({
+          papers: state.papers.map((p) =>
+            p.id === paperId ? { ...p, blocks, updatedAt: Date.now() } : p
+          ),
+        }));
+
+        await get().updatePaper(paperId, { blocks });
       },
     }),
     {

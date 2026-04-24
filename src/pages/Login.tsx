@@ -38,8 +38,11 @@ export default function Login() {
         if (data.user) {
           setUser({
             id: data.user.id,
-            name: name.trim(),
+            fullName: name.trim(),
             schoolName: schoolName.trim(),
+            email: data.user.email || '',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
           });
           navigate('/');
         }
@@ -60,8 +63,11 @@ export default function Login() {
 
           setUser({
             id: data.user.id,
-            name: userData?.name || email.split('@')[0],
+            fullName: userData?.full_name || email.split('@')[0] || '',
             schoolName: userData?.school_name || 'My School',
+            email: data.user.email || '',
+            createdAt: userData?.created_at ? new Date(userData.created_at).getTime() : Date.now(),
+            updatedAt: userData?.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
           });
           navigate('/');
         }
@@ -127,7 +133,7 @@ export default function Login() {
             </>
           )}
           <div className="property-field">
-            <label className="property-label">Email</label>
+            <label className="property-label">  Email</label>
             <input
               type="email"
               className="property-input"
@@ -138,7 +144,7 @@ export default function Login() {
             />
           </div>
           <div className="property-field">
-            <label className="property-label">Password</label>
+            <label className="property-label">  Password</label>
             <input
               type="password"
               className="property-input"

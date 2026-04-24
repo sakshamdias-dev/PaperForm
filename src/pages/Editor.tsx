@@ -266,26 +266,27 @@ export default function Editor() {
     const block = paper.blocks.find((b) => b.id === selectedBlockId);
     if (!block || block.type === 'section') return;
 
-    let questionData: Omit<Question, 'id' | 'createdAt'>;
+    let questionData: Omit<Question, 'id' | 'userId' | 'sectionId' | 'createdAt' | 'updatedAt'>;
     if (block.type === 'mcq') {
       const mb = block as MCQBlock;
       questionData = {
-        type: 'mcq',
-        question: mb.question,
+        questionText: mb.question,
+        questionType: 'mcq',
         options: mb.options,
-        correctAnswer: mb.correctAnswer,
+        correctAnswer: mb.correctAnswer.toString(),
         marks: mb.marks,
         subject: paper.subject,
+        orderIndex: 0,
       };
     } else if (block.type === 'short') {
       const sb = block as ShortBlock;
-      questionData = { type: 'short', question: sb.question, marks: sb.marks, subject: paper.subject };
+      questionData = { questionText: sb.question, questionType: 'short', marks: sb.marks, subject: paper.subject, orderIndex: 0 };
     } else if (block.type === 'long') {
       const lb = block as LongBlock;
-      questionData = { type: 'long', question: lb.question, marks: lb.marks, subject: paper.subject };
+      questionData = { questionText: lb.question, questionType: 'long', marks: lb.marks, subject: paper.subject, orderIndex: 0 };
     } else {
       const fb = block as FillBlankBlock;
-      questionData = { type: 'fillblank', question: fb.text, marks: fb.marks, subject: paper.subject };
+      questionData = { questionText: fb.text, questionType: 'fillblank', marks: fb.marks, subject: paper.subject, orderIndex: 0 };
     }
     await saveQuestionToBank(questionData);
     showToastMessage('Question saved to Question Bank!');
@@ -466,12 +467,21 @@ export default function Editor() {
       <div className="editor-canvas">
         <div className="paper-container">
           <div className="paper-header">
-            <h1 className="paper-school-name">{paper.schoolName}</h1>
+            <h1 className="paper-school-name">{paper.schoolName || 'School Name'}</h1>
             <h2 className="paper-exam-title">{paper.title}</h2>
             <div className="paper-info">
+              <span>Course: {paper.course || 'K12'}</span>
               <span>Subject: {paper.subject}</span>
               <span>Grade: {paper.grade}</span>
+              {paper.duration && <span>Duration: {paper.duration >= 60 ? `${Math.floor(paper.duration / 60)} hr ${paper.duration % 60 > 0 ? paper.duration % 60 + ' min' : ''}` : `${paper.duration} min`}</span>}
+              {paper.examDate && <span>Date: {new Date(paper.examDate).toLocaleDateString()}</span>}
+              {paper.maxMarks && <span>Max Marks: {paper.maxMarks}</span>}
             </div>
+            {paper.instructions && (
+              <div className="paper-instructions">
+                <strong>Instructions:</strong> {paper.instructions}
+              </div>
+            )}
           </div>
 
           {paper.blocks.length === 0 ? (

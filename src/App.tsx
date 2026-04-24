@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from './store';
 import { supabase } from './supabase';
@@ -11,8 +11,15 @@ function App() {
   const setUser = useStore((s) => s.setUser);
   const fetchPapers = useStore((s) => s.fetchPapers);
   const [loading, setLoading] = useState(true);
+  const authInitialized = useRef(false);
 
   const initAuth = useCallback(async () => {
+    if (authInitialized.current) {
+      setLoading(false);
+      return;
+    }
+    authInitialized.current = true;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -26,15 +33,21 @@ function App() {
         if (userData) {
           setUser({
             id: session.user.id,
-            name: userData.name || session.user.email?.split('@')[0] || 'User',
-            schoolName: userData.school_name || 'My School',
+            fullName: userData.full_name || session.user.email?.split('@')[0] || '',
+            schoolName: userData.school_name || '',
+            email: session.user.email || '',
+            createdAt: userData.created_at ? new Date(userData.created_at).getTime() : Date.now(),
+            updatedAt: userData.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
           });
           await fetchPapers();
         } else {
           setUser({
             id: session.user.id,
-            name: session.user.email?.split('@')[0] || 'User',
-            schoolName: 'My School',
+            fullName: session.user.email?.split('@')[0] || '',
+            schoolName: '',
+            email: session.user.email || '',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
           });
         }
       }
@@ -48,8 +61,8 @@ function App() {
   useEffect(() => {
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
         const { data: userData } = await supabase
           .from('users')
           .select('*')
@@ -58,12 +71,15 @@ function App() {
 
         setUser({
           id: session.user.id,
-          name: userData?.name || session.user.email?.split('@')[0] || 'User',
-          schoolName: userData?.school_name || 'My School',
+          fullName: userData?.full_name || session.user.email?.split('@')[0] || '',
+          schoolName: userData?.school_name || '',
+          email: session.user.email || '',
+          createdAt: userData?.created_at ? new Date(userData.created_at).getTime() : Date.now(),
+          updatedAt: userData?.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
         });
         fetchPapers();
-      } else {
-        setUser({ id: '', name: '', schoolName: '' });
+      } else if (event === 'SIGNED_OUT') {
+        setUser({ id: '', fullName: '', schoolName: '', email: '', createdAt: 0, updatedAt: 0 });
         setLoading(false);
       }
     });

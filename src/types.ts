@@ -1,8 +1,14 @@
-export type BlockType = 'mcq' | 'short' | 'long' | 'fillblank';
+export type BlockType = 'section' | 'mcq' | 'short' | 'long' | 'fillblank';
 
 export interface Block {
   id: string;
   type: BlockType;
+}
+
+export interface SectionBlock extends Block {
+  type: 'section';
+  title: string;
+  instruction: string;
 }
 
 export interface MCQBlock extends Block {
@@ -33,7 +39,7 @@ export interface FillBlankBlock extends Block {
   marks: number;
 }
 
-export type AnyBlock = MCQBlock | ShortBlock | LongBlock | FillBlankBlock;
+export type AnyBlock = SectionBlock | MCQBlock | ShortBlock | LongBlock | FillBlankBlock;
 
 export interface User {
   id: string;
@@ -53,9 +59,14 @@ export interface Paper {
   grade: string;
   schoolName: string;
   description?: string;
-  timeLimit?: number;
+  instructions?: string;
+  duration?: number;
+  course?: string;
+  examDate?: string;
+  maxMarks?: number;
   totalMarks: number;
   isPublished: boolean;
+  blocks: AnyBlock[];
   createdAt: number;
   updatedAt: number;
 }

@@ -16,6 +16,11 @@ export default function Dashboard() {
   const [newTitle, setNewTitle] = useState('');
   const [newSubject, setNewSubject] = useState<Subject>('Mathematics');
   const [newGrade, setNewGrade] = useState<Grade>('9th Grade');
+  const [newInstructions, setNewInstructions] = useState('');
+  const [newDuration, setNewDuration] = useState(60);
+  const [newCourse, setNewCourse] = useState('K12');
+  const [newExamDate, setNewExamDate] = useState('');
+  const [newMaxMarks, setNewMaxMarks] = useState(100);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -34,9 +39,14 @@ export default function Dashboard() {
   const handleCreatePaper = async () => {
     if (newTitle.trim()) {
       setCreating(true);
-      const id = await createPaper(newTitle.trim(), newSubject, newGrade);
+      const id = await createPaper(newTitle.trim(), newSubject, newGrade, newInstructions, newDuration, newCourse, newExamDate, newMaxMarks);
       setShowNewModal(false);
       setNewTitle('');
+      setNewInstructions('');
+      setNewDuration(60);
+      setNewCourse('K12');
+      setNewExamDate('');
+      setNewMaxMarks(100);
       setCreating(false);
       navigate(`/editor/${id}`);
     }
@@ -44,7 +54,7 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser({ id: '', name: '', schoolName: '' });
+    setUser({ id: '', fullName: '', schoolName: '', email: '', createdAt: 0, updatedAt: 0 });
     navigate('/login');
   };
 
@@ -85,20 +95,20 @@ export default function Dashboard() {
           </div>
         </div>
         <nav className="sidebar-nav">
+          <button className="new-paper-btn" onClick={() => setShowNewModal(true)} style={{ marginBottom: 16 }}>
+            <Plus size={20} />
+            <span>New Paper</span>
+          </button>
           <div className="nav-item active">
             <FolderOpen size={20} />
             <span>My Papers</span>
           </div>
+        </nav>
+        <div className="sidebar-footer">
           <div className="nav-item" onClick={handleLogout} style={{ cursor: 'pointer' }}>
             <LogOut size={20} />
             <span>Sign Out</span>
           </div>
-        </nav>
-        <div className="sidebar-footer">
-          <button className="new-paper-btn" onClick={() => setShowNewModal(true)}>
-            <Plus size={20} />
-            <span>New Paper</span>
-          </button>
         </div>
       </aside>
 
@@ -107,7 +117,7 @@ export default function Dashboard() {
           <div className="dashboard-header">
             <div>
               <h1 className="dashboard-title">My Papers</h1>
-              <p className="dashboard-subtitle">Welcome back, {user?.name}</p>
+              <p className="dashboard-subtitle">Welcome back, {user?.fullName}</p>
             </div>
             <div className="filters">
               <input
@@ -196,7 +206,7 @@ export default function Dashboard() {
             <div className="modal-header">
               <h2 className="modal-title">Create New Paper</h2>
             </div>
-            <div className="modal-content">
+            <div className="modal-content" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <div className="property-field">
                 <label className="property-label">Paper Title</label>
                 <input
@@ -206,6 +216,59 @@ export default function Dashboard() {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                 />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Instructions</label>
+                <textarea
+                  className="property-textarea"
+                  placeholder="General instructions for the exam..."
+                  value={newInstructions}
+                  onChange={(e) => setNewInstructions(e.target.value)}
+                  style={{ minHeight: 60 }}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="property-field">
+                  <label className="property-label">Duration (minutes)</label>
+                  <input
+                    type="number"
+                    className="property-input"
+                    value={newDuration}
+                    onChange={(e) => setNewDuration(parseInt(e.target.value) || 60)}
+                    min={1}
+                  />
+                </div>
+                <div className="property-field">
+                  <label className="property-label">Course</label>
+                  <input
+                    type="text"
+                    className="property-input"
+                    placeholder="e.g., K12"
+                    value={newCourse}
+                    onChange={(e) => setNewCourse(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="property-field">
+                  <label className="property-label">Date</label>
+                  <input
+                    type="date"
+                    className="property-input"
+                    value={newExamDate}
+                    onChange={(e) => setNewExamDate(e.target.value)}
+                  />
+                </div>
+                <div className="property-field">
+                  <label className="property-label">Max Marks</label>
+                  <input
+                    type="number"
+                    className="property-input"
+                    value={newMaxMarks}
+                    onChange={(e) => setNewMaxMarks(parseInt(e.target.value) || 100)}
+                    min={1}
+                  />
+                </div>
               </div>
               <div className="property-field">
                 <label className="property-label">Subject</label>

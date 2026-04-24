@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif:wght@400;600;700&display=swap');
 
 :root {
-  --primary: #1A0F2E;
-  --primary-light: #2E1A47;
-  --primary-lighter: #3D2660;
-  --accent: #F5A623;
-  --accent-hover: #FFB84D;
+  --primary: #00d2ff;
+  --primary-dark: #0F2744;
+  --primary-mid: #163859;
+  --accent: #FF6B00;
+  --accent-hover: #FF8533;
   --background: #F5F5F7;
   --surface: #FFFFFF;
   --text-primary: #1A1A2E;
@@ -16,7 +16,7 @@
   --error: #EF4444;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
-  --shadow-lg: 0 10px 25px rgba(26,15,46,0.15);
+  --shadow-lg: 0 10px 25px rgba(10,25,41,0.15);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -54,7 +54,7 @@ input, textarea, select {
   padding: 12px 14px;
   font-size: 14px;
   transition: var(--transition);
-  background: var(--primary-light);
+  background: var(--primary-dark);
   color: white;
 }
 
@@ -75,7 +75,7 @@ input::placeholder, textarea::placeholder {
 /* Sidebar */
 .sidebar {
   width: 260px;
-  background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
+  background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 100%);
   color: white;
   display: flex;
   flex-direction: column;
@@ -108,7 +108,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .logo-icon svg {
-  color: var(--primary);
+  color: var(--primary-dark);
 }
 
 .logo-text {
@@ -129,7 +129,7 @@ input::placeholder, textarea::placeholder {
   gap: 12px;
   padding: 12px 16px;
   border-radius: var(--radius-md);
-  color: rgba(255,255,255,0.6);
+  color: black;
   font-size: 14px;
   font-weight: 500;
   transition: var(--transition);
@@ -143,7 +143,7 @@ input::placeholder, textarea::placeholder {
 
 .nav-item.active {
   background: rgba(245,166,35,0.15);
-  color: var(--accent);
+  color: var(--background);
 }
 
 .nav-item svg {
@@ -168,7 +168,7 @@ input::placeholder, textarea::placeholder {
 .new-paper-btn {
   width: 100%;
   background: var(--accent);
-  color: var(--primary);
+  color: var(--primary-dark);
   padding: 14px 20px;
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -235,7 +235,7 @@ input::placeholder, textarea::placeholder {
 
 .search-input {
   width: 260px;
-  background: var(--surface);
+  background: var(--text-primary);
   color: var(--text-primary);
   border: 1px solid var(--border);
 }
@@ -321,7 +321,7 @@ input::placeholder, textarea::placeholder {
   font-size: 11px;
   padding: 4px 10px;
   border-radius: 20px;
-  background: var(--primary-light);
+  background: var(--primary-dark);
   color: white;
   font-weight: 500;
 }
@@ -352,12 +352,12 @@ input::placeholder, textarea::placeholder {
 }
 
 .paper-action-btn.primary {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
 }
 
 .paper-action-btn.primary:hover {
-  background: var(--primary-light);
+  background: var(--accent-hover);
 }
 
 .paper-action-btn.secondary {
@@ -383,7 +383,7 @@ input::placeholder, textarea::placeholder {
 
 .editor-sidebar {
   width: 300px;
-  background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
+  background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 100%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -453,7 +453,7 @@ input::placeholder, textarea::placeholder {
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: var(--primary-light);
+  background: var(--primary-dark);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: var(--radius-md);
   font-size: 13px;
@@ -464,7 +464,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .block-item:hover {
-  background: var(--primary-lighter);
+  /* background: var(--primary-dark); */
   border-color: var(--accent);
   transform: translateX(4px);
 }
@@ -555,6 +555,18 @@ input::placeholder, textarea::placeholder {
   justify-content: center;
   gap: 28px;
   margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.paper-instructions {
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: #FFF8E6;
+  border: 1px solid #F5D89A;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: #8B6914;
+  text-align: left;
 }
 
 .paper-blocks {
@@ -781,7 +793,7 @@ input::placeholder, textarea::placeholder {
 /* Property Panel */
 .property-panel {
   width: 300px;
-  background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
+  background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 100%);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -810,10 +822,10 @@ input::placeholder, textarea::placeholder {
 
 .property-label {
   display: block;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   margin-bottom: 8px;
-  color: rgba(255,255,255,0.7);
+  color: var(--text-primary);
 }
 
 .property-input {
@@ -933,12 +945,12 @@ input::placeholder, textarea::placeholder {
 }
 
 .toolbar-btn:hover {
-  background: var(--primary-light);
+  background: var(--primary-dark);
 }
 
 .toolbar-btn.primary {
   background: var(--accent);
-  color: var(--primary);
+  color: white;
 }
 
 .toolbar-btn.primary:hover {
@@ -1018,12 +1030,12 @@ input::placeholder, textarea::placeholder {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--primary-light);
+  background: var(--accent-hover);
 }
 
 .btn-danger {
@@ -1041,7 +1053,7 @@ input::placeholder, textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   padding: 20px;
 }
 
@@ -1071,7 +1083,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .login-logo svg {
-  color: var(--primary);
+  color: var(--primary-dark);
   width: 28px;
   height: 28px;
 }
@@ -1080,7 +1092,7 @@ input::placeholder, textarea::placeholder {
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 4px;
-  color: var(--primary);
+  color: var(--primary-dark);
 }
 
 .login-subtitle {
@@ -1091,7 +1103,7 @@ input::placeholder, textarea::placeholder {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 5px;
 }
 
 .login-form .property-input {
@@ -1129,7 +1141,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .export-option:hover {
-  border-color: var(--primary-light);
+  border-color: var(--primary-dark);
 }
 
 .export-option.selected {
