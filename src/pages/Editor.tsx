@@ -84,13 +84,17 @@ function SortableBlock({ block, isSelected, onSelect, onDelete, questionNumber }
       }
       case 'mcq': {
         const mb = block as MCQBlock;
+        const wordCount = mb.options.reduce((max, opt) => Math.max(max, opt.split(' ').length), 0);
+        const hasLongOption = mb.options.some(opt => opt.split(' ').length > 6);
+        const layout = hasLongOption ? 'vertical' : wordCount > 3 ? 'grid2' : 'horizontal';
+        
         return (
           <div className="block-display">
             <p className="question-text">
               <span className="question-number">{questionNumber}.</span>
               {mb.question}
             </p>
-            <div className="mcq-options">
+            <div className={`mcq-options mcq-options-${layout}`}>
               {mb.options.map((opt, i) => (
                 <div key={i} className={`mcq-option ${mb.correctAnswer === i ? 'correct' : ''}`}>
                   <span className="mcq-option-letter">{String.fromCharCode(65 + i)}</span>
@@ -192,8 +196,6 @@ export default function Editor() {
 
   const paper = papers.find((p) => p.id === id);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportMode, setExportMode] = useState<'student' | 'teacher'>('student');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
@@ -326,7 +328,7 @@ export default function Editor() {
 
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text(paper.schoolName, pageWidth / 2, y, { align: 'center' });
+    doc.text(paper.schoolName || 'School Name', pageWidth / 2, y, { align: 'center' });
     y += 10;
 
     doc.setFontSize(16);
@@ -335,16 +337,30 @@ export default function Editor() {
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Subject: ${paper.subject}  |  Grade: ${paper.grade}`, pageWidth / 2, y, { align: 'center' });
-    y += 15;
-
-    if (exportMode === 'teacher') {
-      doc.setFontSize(10);
-      doc.setTextColor(180, 120, 0);
-      doc.text('TEACHER\'S COPY', pageWidth / 2, y, { align: 'center' });
-      doc.setTextColor(0, 0, 0);
-      y += 8;
+    const details: string[] = [];
+    if (paper.course) details.push(`Course: ${paper.course}`);
+    if (paper.subject) details.push(`Subject: ${paper.subject}`);
+    if (paper.grade) details.push(`Grade: ${paper.grade}`);
+    if (paper.duration) {
+      const dur = paper.duration >= 60 ? `${Math.floor(paper.duration / 60)} hr${paper.duration % 60 > 0 ? ` ${paper.duration % 60} min` : ''}` : `${paper.duration} min`;
+      details.push(`Duration: ${dur}`);
     }
+    if (paper.examDate) details.push(`Date: ${new Date(paper.examDate).toLocaleDateString()}`);
+    if (paper.maxMarks) details.push(`Max Marks: ${paper.maxMarks}`);
+    doc.text(details.join('  |  '), pageWidth / 2, y, { align: 'center' });
+    y += 6;
+
+    if (paper.instructions) {
+      y += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      const instLines = doc.splitTextToSize(`Instructions: ${paper.instructions}`, contentWidth);
+      doc.text(instLines, margin, y, { align: 'left' });
+      y += instLines.length * 4 + 8;
+    }
+
+    doc.setFontSize(11);
+    y += 8;
 
     paper.blocks.forEach((block) => {
       if (y > 270) {
@@ -382,8 +398,7 @@ export default function Editor() {
           y += lines.length * 5 + 4;
           doc.setFontSize(10);
           mb.options.forEach((opt, i) => {
-            const prefix = exportMode === 'teacher' && mb.correctAnswer === i ? '[✓] ' : '   ';
-            const optLines = doc.splitTextToSize(prefix + String.fromCharCode(65 + i) + '. ' + opt, contentWidth - 25);
+            const optLines = doc.splitTextToSize('   ' + String.fromCharCode(65 + i) + '. ' + opt, contentWidth - 25);
             doc.text(optLines, qStart + 5, y);
             y += optLines.length * 4 + 2;
           });
@@ -410,7 +425,7 @@ export default function Editor() {
       }
     });
 
-    doc.save(`${paper.title.replace(/\s+/g, '_')}_${exportMode}.pdf`);
+    doc.save(`${paper.title.replace(/\s+/g, '_')}.pdf`);
   };
 
   if (!paper) {
@@ -535,7 +550,7 @@ export default function Editor() {
               {selectedBlock.type === 'section' && (
                 <>
                   <div className="property-field">
-                    <label className="property-label">Section Title</label>
+                    <label className="property-label editor-label">Section Title</label>
                     <input
                       type="text"
                       className="property-input"
@@ -545,7 +560,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Instructions (optional)</label>
+                    <label className="property-label editor-label">Instructions (optional)</label>
                     <textarea
                       className="property-textarea"
                       value={(selectedBlock as SectionBlock).instruction}
@@ -559,7 +574,7 @@ export default function Editor() {
               {selectedBlock.type === 'mcq' && (
                 <>
                   <div className="property-field">
-                    <label className="property-label">Question</label>
+                    <label className="property-label editor-label">Question</label>
                     <textarea
                       className="property-textarea"
                       value={(selectedBlock as MCQBlock).question}
@@ -567,7 +582,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Options</label>
+                    <label className="property-label editor-label">Options</label>
                     <div className="property-options">
                       {((selectedBlock as MCQBlock).options || []).map((opt, i) => (
                         <div key={i} className="option-row">
@@ -593,7 +608,7 @@ export default function Editor() {
                     </div>
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Marks</label>
+                    <label className="property-label editor-label">Marks</label>
                     <input
                       type="number"
                       className="property-input"
@@ -611,7 +626,7 @@ export default function Editor() {
               {selectedBlock.type === 'short' && (
                 <>
                   <div className="property-field">
-                    <label className="property-label">Question</label>
+                    <label className="property-label editor-label">Question</label>
                     <textarea
                       className="property-textarea"
                       value={(selectedBlock as ShortBlock).question}
@@ -619,7 +634,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Response Lines</label>
+                    <label className="property-label editor-label">Response Lines</label>
                     <input
                       type="number"
                       className="property-input"
@@ -630,7 +645,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Marks</label>
+                    <label className="property-label editor-label">Marks</label>
                     <input
                       type="number"
                       className="property-input"
@@ -648,7 +663,7 @@ export default function Editor() {
               {selectedBlock.type === 'long' && (
                 <>
                   <div className="property-field">
-                    <label className="property-label">Question</label>
+                    <label className="property-label editor-label">Question</label>
                     <textarea
                       className="property-textarea"
                       value={(selectedBlock as LongBlock).question}
@@ -656,7 +671,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Marks</label>
+                    <label className="property-label editor-label">Marks</label>
                     <input
                       type="number"
                       className="property-input"
@@ -674,7 +689,7 @@ export default function Editor() {
               {selectedBlock.type === 'fillblank' && (
                 <>
                   <div className="property-field">
-                    <label className="property-label">Question Text</label>
+                    <label className="property-label editor-label">Question Text</label>
                     <textarea
                       className="property-textarea"
                       value={(selectedBlock as FillBlankBlock).text}
@@ -683,7 +698,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Answers (comma-separated)</label>
+                    <label className="property-label editor-label">Answers (comma-separated)</label>
                     <input
                       type="text"
                       className="property-input"
@@ -693,7 +708,7 @@ export default function Editor() {
                     />
                   </div>
                   <div className="property-field">
-                    <label className="property-label">Marks</label>
+                    <label className="property-label editor-label">Marks</label>
                     <input
                       type="number"
                       className="property-input"
@@ -725,7 +740,7 @@ export default function Editor() {
           <FileText size={18} />
           {previewMode ? 'Edit Mode' : 'Preview'}
         </button>
-        <button className="toolbar-btn primary" onClick={() => setShowExportModal(true)}>
+        <button className="toolbar-btn primary" onClick={() => exportPDF()}>
           <Download size={18} />
           Export PDF
         </button>
@@ -735,49 +750,6 @@ export default function Editor() {
         <div className="toast-notification">
           <Check size={18} />
           {toastMessage}
-        </div>
-      )}
-
-      {showExportModal && (
-        <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">Export PDF</h2>
-            </div>
-            <div className="modal-content">
-              <p>Choose export format:</p>
-              <div className="export-options">
-                <div
-                  className={`export-option ${exportMode === 'student' ? 'selected' : ''}`}
-                  onClick={() => setExportMode('student')}
-                >
-                  <div className="export-option-radio" />
-                  <div className="export-option-content">
-                    <h4>Student Version</h4>
-                    <p>Clean exam paper without answers</p>
-                  </div>
-                </div>
-                <div
-                  className={`export-option ${exportMode === 'teacher' ? 'selected' : ''}`}
-                  onClick={() => setExportMode('teacher')}
-                >
-                  <div className="export-option-radio" />
-                  <div className="export-option-content">
-                    <h4>Teacher's Version</h4>
-                    <p>Includes correct answers highlighted</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowExportModal(false)}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={() => { exportPDF(); setShowExportModal(false); }}>
-                Download PDF
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -814,11 +786,14 @@ export default function Editor() {
             <div className="preview-content">
               <div className="preview-page">
                 <div className="preview-paper-header">
-                  <div className="preview-school-name">{paper?.schoolName}</div>
+                  <div className="preview-school-name">{paper?.schoolName || 'School Name'}</div>
                   <div className="preview-exam-title">{paper?.title}</div>
                   <div className="preview-paper-info">
-                    Subject: {paper?.subject} | Grade: {paper?.grade}
+                    {[paper?.course && `Course: ${paper?.course}`, paper?.subject && `Subject: ${paper?.subject}`, paper?.grade && `Grade: ${paper?.grade}`, paper?.duration && `Duration: ${paper?.duration && (paper?.duration >= 60 ? `${Math.floor(paper?.duration / 60)} hr${paper?.duration % 60 > 0 ? ` ${paper?.duration % 60} min` : ''}` : `${paper?.duration} min`)}`, paper?.examDate && `Date: ${new Date(paper?.examDate).toLocaleDateString()}`, paper?.maxMarks && `Max Marks: ${paper?.maxMarks}`].filter(Boolean).join(' | ')}
                   </div>
+                  {paper?.instructions && (
+                    <div className="preview-instructions">Instructions: {paper.instructions}</div>
+                  )}
                 </div>
                 {questionBlocks.slice((currentPage - 1) * blocksPerPage, currentPage * blocksPerPage).map((block) => {
                   const globalIdx = questionBlocks.indexOf(block);
@@ -826,14 +801,17 @@ export default function Editor() {
                   
                   if (block.type === 'mcq') {
                     const mb = block as MCQBlock;
+                    const wordCount = mb.options.reduce((max, opt) => Math.max(max, opt.split(' ').length), 0);
+                    const hasLongOption = mb.options.some(opt => opt.split(' ').length > 6);
+                    const layout = hasLongOption ? 'vertical' : wordCount > 3 ? 'grid2' : 'horizontal';
                     return (
                       <div key={block.id} style={{ marginBottom: 16 }}>
                         <p style={{ fontFamily: 'var(--font-serif)', fontSize: 12, lineHeight: 1.6 }}>
                           <strong>{questionNum}.</strong> {mb.question}
                         </p>
-                        <div style={{ marginLeft: 16, marginTop: 8 }}>
+                        <div style={{ marginLeft: 16, marginTop: 8, display: layout === 'horizontal' ? 'flex' : layout === 'grid2' ? 'grid' : 'flex', flexWrap: layout === 'horizontal' ? 'wrap' : undefined, gridTemplateColumns: layout === 'grid2' ? '1fr 1fr' : undefined, gap: layout === 'horizontal' ? '8px 24px' : '4px 0', flexDirection: layout === 'vertical' ? 'column' : 'row' }}>
                           {mb.options.map((opt, i) => (
-                            <div key={i} style={{ fontSize: 11, marginBottom: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <div key={i} style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ width: 16 }}>{String.fromCharCode(65 + i)}.</span>
                               <span>{opt}</span>
                             </div>

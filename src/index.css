@@ -129,8 +129,8 @@ input::placeholder, textarea::placeholder {
   gap: 12px;
   padding: 12px 16px;
   border-radius: var(--radius-md);
-  color: black;
-  font-size: 14px;
+  color: red;
+  font-size: 15px;
   font-weight: 500;
   transition: var(--transition);
   margin-bottom: 4px;
@@ -686,6 +686,34 @@ input::placeholder, textarea::placeholder {
   margin-left: 20px;
 }
 
+.mcq-options-horizontal {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-left: 20px;
+}
+
+.mcq-options-horizontal .mcq-option {
+  display: flex !important;
+  align-items: center !important;
+  white-space: nowrap;
+}
+
+.mcq-options-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 24px;
+  margin-left: 20px;
+}
+
+.mcq-options-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 20px;
+}
+
 .mcq-option {
   display: flex;
   align-items: flex-start;
@@ -826,6 +854,14 @@ input::placeholder, textarea::placeholder {
   font-weight: 500;
   margin-bottom: 8px;
   color: var(--text-primary);
+}
+
+.property-panel .property-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.editor-label {
+  color: white;
 }
 
 .property-input {
@@ -1379,4 +1415,16 @@ input::placeholder, textarea::placeholder {
 .preview-paper-info {
   font-size: 10px;
   color: #666;
+}
+
+.preview-instructions {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #FFF8E6;
+  border: 1px solid #F5D89A;
+  border-radius: 4px;
+  font-size: 9px;
+  color: #8B6914;
+  font-style: italic;
+  text-align: left;
 }

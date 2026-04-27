@@ -48,23 +48,40 @@ export default function Login() {
         }
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: email.trim(),
+          password: password,
         });
 
         if (signInError) throw signInError;
 
         if (data.user) {
-          const { data: userData } = await supabase
+          let { data: userData } = await supabase
             .from('users')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
+          if (!userData) {
+            const { error: insertError } = await supabase.from('users').insert({
+              id: data.user.id,
+              email: data.user.email,
+              full_name: email.split('@')[0] || 'User',
+              school_name: 'My School',
+            });
+            if (!insertError) {
+              userData = {
+                id: data.user.id,
+                full_name: email.split('@')[0] || 'User',
+                school_name: 'My School',
+                email: data.user.email,
+              };
+            }
+          }
+
           setUser({
             id: data.user.id,
             fullName: userData?.full_name || email.split('@')[0] || '',
-            schoolName: userData?.school_name || 'My School',
+            schoolName: userData?.school_name || '',
             email: data.user.email || '',
             createdAt: userData?.created_at ? new Date(userData.created_at).getTime() : Date.now(),
             updatedAt: userData?.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
