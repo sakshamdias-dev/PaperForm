@@ -9,7 +9,7 @@ import Editor from './pages/Editor';
 function App() {
   const user = useStore((s) => s.user);
   const setUser = useStore((s) => s.setUser);
-  const fetchPapers = useStore((s) => s.fetchPapers);
+  const fetchQuestionPapers = useStore((s) => s.fetchQuestionPapers);
   const [loading, setLoading] = useState(true);
   const authInitialized = useRef(false);
 
@@ -24,27 +24,25 @@ function App() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
+        const { data: profileData } = await supabase
+          .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
-        if (userData) {
+        if (profileData) {
           setUser({
             id: session.user.id,
-            fullName: userData.full_name || session.user.email?.split('@')[0] || '',
-            schoolName: userData.school_name || '',
+            fullName: profileData.full_name || session.user.email?.split('@')[0] || '',
             email: session.user.email || '',
-            createdAt: userData.created_at ? new Date(userData.created_at).getTime() : Date.now(),
-            updatedAt: userData.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
+            createdAt: profileData.created_at ? new Date(profileData.created_at).getTime() : Date.now(),
+            updatedAt: profileData.updated_at ? new Date(profileData.updated_at).getTime() : Date.now(),
           });
-          await fetchPapers();
+          await fetchQuestionPapers();
         } else {
           setUser({
             id: session.user.id,
             fullName: session.user.email?.split('@')[0] || '',
-            schoolName: '',
             email: session.user.email || '',
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -56,36 +54,35 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [setUser, fetchPapers]);
+  }, [setUser, fetchQuestionPapers]);
 
   useEffect(() => {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
+        const { data: profileData } = await supabase
+          .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
         setUser({
           id: session.user.id,
-          fullName: userData?.full_name || session.user.email?.split('@')[0] || '',
-          schoolName: userData?.school_name || '',
+          fullName: profileData?.full_name || session.user.email?.split('@')[0] || '',
           email: session.user.email || '',
-          createdAt: userData?.created_at ? new Date(userData.created_at).getTime() : Date.now(),
-          updatedAt: userData?.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
+          createdAt: profileData?.created_at ? new Date(profileData.created_at).getTime() : Date.now(),
+          updatedAt: profileData?.updated_at ? new Date(profileData.updated_at).getTime() : Date.now(),
         });
-        fetchPapers();
+        fetchQuestionPapers();
       } else if (event === 'SIGNED_OUT') {
-        setUser({ id: '', fullName: '', schoolName: '', email: '', createdAt: 0, updatedAt: 0 });
+        setUser({ id: '', fullName: '', email: '', createdAt: 0, updatedAt: 0 });
         setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [initAuth, setUser, fetchPapers]);
+  }, [initAuth, setUser, fetchQuestionPapers]);
 
   if (loading) {
     return (

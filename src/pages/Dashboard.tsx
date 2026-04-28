@@ -1,66 +1,102 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, Trash2, Copy, Edit, FolderOpen, LogOut, Loader2 } from 'lucide-react';
+import { FileText, Plus, Trash2, Copy, Edit, FolderOpen, LogOut, Loader2, BookOpen, Users, GraduationCap } from 'lucide-react';
 import { useStore } from '../store';
-import { SUBJECTS, GRADES } from '../types';
-import type { Subject, Grade } from '../types';
 import { supabase } from '../supabase';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, fetchPapers, createPaper, deletePaper, duplicatePaper, setUser, papers } = useStore();
+  const { user, setUser, questionPapers, courses, subjects, classes, fetchCourses, fetchSubjects, fetchClasses, fetchQuestionPapers, createQuestionPaper, deleteQuestionPaper, duplicateQuestionPaper, createCourse, createSubject, createClass } = useStore();
   const [search, setSearch] = useState('');
-  const [subjectFilter, setSubjectFilter] = useState<Subject | ''>('');
-  const [gradeFilter, setGradeFilter] = useState<Grade | ''>('');
+  const [courseFilter, setCourseFilter] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  // New Paper form state
   const [newTitle, setNewTitle] = useState('');
-  const [newSubject, setNewSubject] = useState<Subject>('Mathematics');
-  const [newGrade, setNewGrade] = useState<Grade>('9th Grade');
-  const [newInstructions, setNewInstructions] = useState('');
-  const [newDuration, setNewDuration] = useState(60);
-  const [newCourse, setNewCourse] = useState('K12');
-  const [newExamDate, setNewExamDate] = useState('');
+  const [newDate, setNewDate] = useState('');
   const [newMaxMarks, setNewMaxMarks] = useState(100);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [newCourseId, setNewCourseId] = useState('');
+  const [newSubjectId, setNewSubjectId] = useState('');
+  const [newClassId, setNewClassId] = useState('');
+  const [newInstructions, setNewInstructions] = useState('');
   const [creating, setCreating] = useState(false);
+  
+  // Settings form state
+  const [settingsTab, setSettingsTab] = useState<'courses' | 'subjects' | 'classes'>('courses');
+  const [newItemName, setNewItemName] = useState('');
+  const [addingItem, setAddingItem] = useState(false);
+  
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPapers();
-  }, [fetchPapers]);
+    fetchQuestionPapers();
+    fetchCourses();
+    fetchSubjects();
+    fetchClasses();
+  }, []);
 
   const filteredPapers = useMemo(() => {
-    return papers
+    return questionPapers
       .filter((p) => p.title.toLowerCase().includes(search.toLowerCase()))
-      .filter((p) => !subjectFilter || p.subject === subjectFilter)
-      .filter((p) => !gradeFilter || p.grade === gradeFilter)
+      .filter((p) => !courseFilter || p.courseId === courseFilter)
+      .filter((p) => !subjectFilter || p.subjectId === subjectFilter)
       .sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [papers, search, subjectFilter, gradeFilter]);
+  }, [questionPapers, search, courseFilter, subjectFilter]);
 
   const handleCreatePaper = async () => {
     if (newTitle.trim()) {
       setCreating(true);
-      const id = await createPaper(newTitle.trim(), newSubject, newGrade, newInstructions, newDuration, newCourse, newExamDate, newMaxMarks);
+      const id = await createQuestionPaper(
+        newTitle.trim(),
+        newDate || undefined,
+        newMaxMarks,
+        newCourseId || undefined,
+        newSubjectId || undefined,
+        newClassId || undefined,
+        newInstructions || undefined
+      );
       setShowNewModal(false);
       setNewTitle('');
-      setNewInstructions('');
-      setNewDuration(60);
-      setNewCourse('K12');
-      setNewExamDate('');
+      setNewDate('');
       setNewMaxMarks(100);
+      setNewCourseId('');
+      setNewSubjectId('');
+      setNewClassId('');
+      setNewInstructions('');
       setCreating(false);
       navigate(`/editor/${id}`);
     }
   };
 
+  const handleAddItem = async () => {
+    if (!newItemName.trim()) return;
+    setAddingItem(true);
+    
+    try {
+      if (settingsTab === 'courses') {
+        await createCourse(newItemName.trim());
+      } else if (settingsTab === 'subjects') {
+        await createSubject(newItemName.trim());
+      } else if (settingsTab === 'classes') {
+        await createClass(newItemName.trim());
+      }
+      setNewItemName('');
+    } finally {
+      setAddingItem(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser({ id: '', fullName: '', schoolName: '', email: '', createdAt: 0, updatedAt: 0 });
+    setUser({ id: '', fullName: '', email: '', createdAt: 0, updatedAt: 0 });
     navigate('/login');
   };
 
   const handleDuplicate = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    duplicatePaper(id);
+    duplicateQuestionPaper(id);
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -70,18 +106,23 @@ export default function Dashboard() {
 
   const confirmDelete = () => {
     if (deleteConfirm) {
-      deletePaper(deleteConfirm);
+      deleteQuestionPaper(deleteConfirm);
       setDeleteConfirm(null);
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'No date';
+    return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
   };
+
+  const getCourseName = (id?: string) => courses.find(c => c.id === id)?.name || '-';
+  const getSubjectName = (id?: string) => subjects.find(s => s.id === id)?.name || '-';
+  const getClassName = (id?: string) => classes.find(c => c.id === id)?.name || '-';
 
   return (
     <div className="app-container">
@@ -103,6 +144,10 @@ export default function Dashboard() {
             <FolderOpen size={20} />
             <span>My Papers</span>
           </div>
+          <div className="nav-item" onClick={() => setShowSettingsModal(true)}>
+            <BookOpen size={20} />
+            <span>Settings</span>
+          </div>
         </nav>
         <div className="sidebar-footer">
           <div className="nav-item" onClick={handleLogout} style={{ cursor: 'pointer' }}>
@@ -116,7 +161,7 @@ export default function Dashboard() {
         <div className="dashboard">
           <div className="dashboard-header">
             <div>
-              <h1 className="dashboard-title">My Papers</h1>
+              <h1 className="dashboard-title">My Question Papers</h1>
               <p className="dashboard-subtitle">Welcome back, {user?.fullName}</p>
             </div>
             <div className="filters">
@@ -127,16 +172,16 @@ export default function Dashboard() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value as Subject | '')}>
-                <option value="">All Subjects</option>
-                {SUBJECTS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+              <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}>
+                <option value="">All Courses</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value as Grade | '')}>
-                <option value="">All Grades</option>
-                {GRADES.map((g) => (
-                  <option key={g} value={g}>{g}</option>
+              <select value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
+                <option value="">All Subjects</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
@@ -147,7 +192,7 @@ export default function Dashboard() {
               <div className="empty-paper-icon">
                 <FileText size={28} />
               </div>
-              <h3>No papers yet</h3>
+              <h3>No question papers yet</h3>
               <p>Create your first exam paper to get started</p>
             </div>
           ) : (
@@ -160,17 +205,19 @@ export default function Dashboard() {
                 >
                   <div className="paper-preview">
                     <div className="paper-preview-inner">
-                      <div className="paper-preview-header">{paper.schoolName}</div>
+                      <div className="paper-preview-header">{getCourseName(paper.courseId)}</div>
                       <div>{paper.title}</div>
                     </div>
                   </div>
                   <div className="paper-card-content">
                     <h3 className="paper-title">{paper.title}</h3>
                     <div className="paper-meta">
-                      <span className="paper-tag">{paper.subject}</span>
-                      <span className="paper-tag">{paper.grade}</span>
+                      <span className="paper-tag">{getSubjectName(paper.subjectId)}</span>
+                      <span className="paper-tag">{getClassName(paper.classId)}</span>
                     </div>
-                    <p className="paper-date">Last edited {formatDate(paper.updatedAt)}</p>
+                    <p className="paper-date">
+                      {paper.qpCode} • {formatDate(paper.date)} • {paper.maxMarks || 0} marks
+                    </p>
                     <div className="paper-actions">
                       <button
                         className="paper-action-btn primary"
@@ -200,11 +247,12 @@ export default function Dashboard() {
         </div>
       </main>
 
+      {/* New Paper Modal */}
       {showNewModal && (
         <div className="modal-overlay" onClick={() => setShowNewModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Create New Paper</h2>
+              <h2 className="modal-title">Create New Question Paper</h2>
             </div>
             <div className="modal-content" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <div className="property-field">
@@ -217,47 +265,47 @@ export default function Dashboard() {
                   onChange={(e) => setNewTitle(e.target.value)}
                 />
               </div>
-              <div className="property-field">
-                <label className="property-label">Instructions</label>
-                <textarea
-                  className="property-textarea"
-                  placeholder="General instructions for the exam..."
-                  value={newInstructions}
-                  onChange={(e) => setNewInstructions(e.target.value)}
-                  style={{ minHeight: 60 }}
-                />
-              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div className="property-field">
-                  <label className="property-label">Duration (minutes)</label>
-                  <input
-                    type="number"
-                    className="property-input"
-                    value={newDuration}
-                    onChange={(e) => setNewDuration(parseInt(e.target.value) || 60)}
-                    min={1}
-                  />
-                </div>
                 <div className="property-field">
                   <label className="property-label">Course</label>
-                  <input
-                    type="text"
+                  <select
                     className="property-input"
-                    placeholder="e.g., K12"
-                    value={newCourse}
-                    onChange={(e) => setNewCourse(e.target.value)}
-                  />
+                    value={newCourseId}
+                    onChange={(e) => setNewCourseId(e.target.value)}
+                  >
+                    <option value="">Select Course</option>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="property-field">
+                  <label className="property-label">Subject</label>
+                  <select
+                    className="property-input"
+                    value={newSubjectId}
+                    onChange={(e) => setNewSubjectId(e.target.value)}
+                  >
+                    <option value="">Select Subject</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="property-field">
-                  <label className="property-label">Date</label>
-                  <input
-                    type="date"
+                  <label className="property-label">Class</label>
+                  <select
                     className="property-input"
-                    value={newExamDate}
-                    onChange={(e) => setNewExamDate(e.target.value)}
-                  />
+                    value={newClassId}
+                    onChange={(e) => setNewClassId(e.target.value)}
+                  >
+                    <option value="">Select Class</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="property-field">
                   <label className="property-label">Max Marks</label>
@@ -270,29 +318,26 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
-              <div className="property-field">
-                <label className="property-label">Subject</label>
-                <select
-                  className="property-input"
-                  value={newSubject}
-                  onChange={(e) => setNewSubject(e.target.value as Subject)}
-                >
-                  {SUBJECTS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="property-field">
+                  <label className="property-label">Date</label>
+                  <input
+                    type="date"
+                    className="property-input"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="property-field">
-                <label className="property-label">Grade</label>
-                <select
-                  className="property-input"
-                  value={newGrade}
-                  onChange={(e) => setNewGrade(e.target.value as Grade)}
-                >
-                  {GRADES.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
+                <label className="property-label">Instructions</label>
+                <textarea
+                  className="property-textarea"
+                  placeholder="General instructions for the exam..."
+                  value={newInstructions}
+                  onChange={(e) => setNewInstructions(e.target.value)}
+                  style={{ minHeight: 60 }}
+                />
               </div>
             </div>
             <div className="modal-actions">
@@ -307,6 +352,92 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Settings</h2>
+            </div>
+            <div className="modal-content">
+              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                <button
+                  className={`btn ${settingsTab === 'courses' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setSettingsTab('courses')}
+                >
+                  <GraduationCap size={16} />
+                  Courses
+                </button>
+                <button
+                  className={`btn ${settingsTab === 'subjects' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setSettingsTab('subjects')}
+                >
+                  <BookOpen size={16} />
+                  Subjects
+                </button>
+                <button
+                  className={`btn ${settingsTab === 'classes' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setSettingsTab('classes')}
+                >
+                  <Users size={16} />
+                  Classes
+                </button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    className="property-input"
+                    placeholder={`Add new ${settingsTab.slice(0, -1)}...`}
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                    style={{ flex: 1 }}
+                  />
+                  <button className="btn btn-primary" onClick={handleAddItem} disabled={addingItem}>
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {settingsTab === 'courses' && courses.map((c) => (
+                  <span key={c.id} className="paper-tag" style={{ cursor: 'default' }}>
+                    {c.name}
+                  </span>
+                ))}
+                {settingsTab === 'subjects' && subjects.map((s) => (
+                  <span key={s.id} className="paper-tag" style={{ cursor: 'default' }}>
+                    {s.name}
+                  </span>
+                ))}
+                {settingsTab === 'classes' && classes.map((c) => (
+                  <span key={c.id} className="paper-tag" style={{ cursor: 'default' }}>
+                    {c.name}
+                  </span>
+                ))}
+                {settingsTab === 'courses' && courses.length === 0 && (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No courses yet. Add one above.</p>
+                )}
+                {settingsTab === 'subjects' && subjects.length === 0 && (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No subjects yet. Add one above.</p>
+                )}
+                {settingsTab === 'classes' && classes.length === 0 && (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No classes yet. Add one above.</p>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowSettingsModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>

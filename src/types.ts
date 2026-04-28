@@ -1,17 +1,94 @@
-export type BlockType = 'section' | 'mcq' | 'short' | 'long' | 'fillblank';
+export type QuestionType = 'mcq' | 'short' | 'long' | 'fillblank';
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export type PaperSection = 'A' | 'B' | 'C' | 'D';
 
-export interface Block {
+export interface User {
   id: string;
-  type: BlockType;
+  email: string;
+  fullName: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
-export interface SectionBlock extends Block {
+export interface Course {
+  id: string;
+  teacherId: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Subject {
+  id: string;
+  teacherId: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Class {
+  id: string;
+  teacherId: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Question {
+  id: string;
+  teacherId: string;
+  content: string;
+  courseId?: string;
+  subjectId?: string;
+  classId?: string;
+  questionType: QuestionType;
+  options: string[];
+  difficulty: Difficulty;
+  explanation?: string;
+  imageUrl?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface QuestionPaper {
+  id: string;
+  qpCode: string;
+  teacherId: string;
+  title: string;
+  date?: string;
+  maxMarks?: number;
+  courseId?: string;
+  subjectId?: string;
+  classId?: string;
+  instructions?: string;
+  isPublished: boolean;
+  totalMarks: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PaperQuestion {
+  id: string;
+  paperId: string;
+  questionId: string;
+  section: PaperSection;
+  marks: number;
+  orderIndex: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type AnyBlock = SectionBlock | MCQBlock | ShortBlock | LongBlock | FillBlankBlock;
+
+export interface SectionBlock {
+  id: string;
   type: 'section';
   title: string;
   instruction: string;
 }
 
-export interface MCQBlock extends Block {
+export interface MCQBlock {
+  id: string;
   type: 'mcq';
   question: string;
   options: string[];
@@ -19,88 +96,25 @@ export interface MCQBlock extends Block {
   marks: number;
 }
 
-export interface ShortBlock extends Block {
+export interface ShortBlock {
+  id: string;
   type: 'short';
   question: string;
   lines: number;
   marks: number;
 }
 
-export interface LongBlock extends Block {
+export interface LongBlock {
+  id: string;
   type: 'long';
   question: string;
   marks: number;
 }
 
-export interface FillBlankBlock extends Block {
+export interface FillBlankBlock {
+  id: string;
   type: 'fillblank';
   text: string;
   answers: string;
   marks: number;
 }
-
-export type AnyBlock = SectionBlock | MCQBlock | ShortBlock | LongBlock | FillBlankBlock;
-
-export interface User {
-  id: string;
-  email: string;
-  fullName: string;
-  schoolName: string;
-  avatarUrl?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface Paper {
-  id: string;
-  userId: string;
-  title: string;
-  subject: string;
-  grade: string;
-  schoolName: string;
-  description?: string;
-  instructions?: string;
-  duration?: number;
-  course?: string;
-  examDate?: string;
-  maxMarks?: number;
-  totalMarks: number;
-  isPublished: boolean;
-  blocks: AnyBlock[];
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface Section {
-  id: string;
-  paperId: string;
-  title: string;
-  instruction?: string;
-  orderIndex: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface Question {
-  id: string;
-  userId: string;
-  sectionId?: string;
-  questionText: string;
-  questionType: BlockType;
-  options?: string[];
-  correctAnswer?: string;
-  marks: number;
-  subject?: string;
-  topic?: string;
-  difficulty?: 'easy' | 'medium' | 'hard';
-  explanation?: string;
-  orderIndex: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export type Subject = 'Mathematics' | 'Science' | 'English' | 'History' | 'Geography' | 'Physics' | 'Chemistry' | 'Biology' | 'Other';
-export type Grade = '9th Grade' | '10th Grade';
-
-export const SUBJECTS: Subject[] = ['Mathematics', 'Science', 'English', 'History', 'Geography', 'Physics', 'Chemistry', 'Biology', 'Other'];
-export const GRADES: Grade[] = ['9th Grade', '10th Grade'];

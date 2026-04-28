@@ -8,7 +8,6 @@ export default function Login() {
   const navigate = useNavigate();
   const setUser = useStore((s) => s.setUser);
   const [name, setName] = useState('');
-  const [schoolName, setSchoolName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -28,7 +27,6 @@ export default function Login() {
           options: {
             data: {
               name: name.trim(),
-              school_name: schoolName.trim(),
             },
           },
         });
@@ -39,7 +37,6 @@ export default function Login() {
           setUser({
             id: data.user.id,
             fullName: name.trim(),
-            schoolName: schoolName.trim(),
             email: data.user.email || '',
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -49,30 +46,28 @@ export default function Login() {
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
-          password: password,
+          password,
         });
 
         if (signInError) throw signInError;
 
         if (data.user) {
-          let { data: userData } = await supabase
-            .from('users')
+          let { data: profileData } = await supabase
+            .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
-          if (!userData) {
-            const { error: insertError } = await supabase.from('users').insert({
+          if (!profileData) {
+            const { error: insertError } = await supabase.from('profiles').insert({
               id: data.user.id,
               email: data.user.email,
-              full_name: email.split('@')[0] || 'User',
-              school_name: 'My School',
+              full_name: email.split('@')[0] || 'Teacher',
             });
             if (!insertError) {
-              userData = {
+              profileData = {
                 id: data.user.id,
-                full_name: email.split('@')[0] || 'User',
-                school_name: 'My School',
+                full_name: email.split('@')[0] || 'Teacher',
                 email: data.user.email,
               };
             }
@@ -80,17 +75,17 @@ export default function Login() {
 
           setUser({
             id: data.user.id,
-            fullName: userData?.full_name || email.split('@')[0] || '',
-            schoolName: userData?.school_name || '',
+            fullName: profileData?.full_name || email.split('@')[0] || '',
             email: data.user.email || '',
-            createdAt: userData?.created_at ? new Date(userData.created_at).getTime() : Date.now(),
-            updatedAt: userData?.updated_at ? new Date(userData.updated_at).getTime() : Date.now(),
+            createdAt: profileData?.created_at ? new Date(profileData.created_at).getTime() : Date.now(),
+            updatedAt: profileData?.updated_at ? new Date(profileData.updated_at).getTime() : Date.now(),
           });
           navigate('/');
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -124,33 +119,20 @@ export default function Login() {
 
         <form className="login-form" onSubmit={handleSubmit}>
           {isSignUp && (
-            <>
-              <div className="property-field">
-                <label className="property-label">Your Name</label>
-                <input
-                  type="text"
-                  className="property-input"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required={isSignUp}
-                />
-              </div>
-              <div className="property-field">
-                <label className="property-label">School Name</label>
-                <input
-                  type="text"
-                  className="property-input"
-                  placeholder="Enter your school name"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  required={isSignUp}
-                />
-              </div>
-            </>
+            <div className="property-field">
+              <label className="property-label">Your Name</label>
+              <input
+                type="text"
+                className="property-input"
+                placeholder="Enter your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required={isSignUp}
+              />
+            </div>
           )}
           <div className="property-field">
-            <label className="property-label">  Email</label>
+            <label className="property-label">Email</label>
             <input
               type="email"
               className="property-input"
@@ -161,7 +143,7 @@ export default function Login() {
             />
           </div>
           <div className="property-field">
-            <label className="property-label">  Password</label>
+            <label className="property-label">Password</label>
             <input
               type="password"
               className="property-input"

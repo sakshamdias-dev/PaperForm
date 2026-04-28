@@ -1428,3 +1428,170 @@ input::placeholder, textarea::placeholder {
   font-style: italic;
   text-align: left;
 }
+
+/* Question Bank */
+.question-bank-item {
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.question-bank-item:hover {
+  border-color: var(--accent);
+}
+
+.question-bank-item.selected {
+  border-color: var(--accent);
+  background: rgba(245, 166, 35, 0.1);
+}
+
+.question-bank-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.question-bank-item-content p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.question-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--primary-dark);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.question-type-badge.small {
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.question-bank-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Paper Questions List */
+.paper-questions-list {
+  min-height: 200px;
+}
+
+.paper-section {
+  margin-bottom: 24px;
+}
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--text-primary);
+}
+
+.section-divider span {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.paper-question-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.paper-question-content {
+  position: relative;
+  background: #FAFBFC;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: var(--transition);
+}
+
+.paper-question-content:hover {
+  border-color: var(--accent);
+}
+
+.paper-question-content.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.2);
+}
+
+.paper-question-wrapper.dragging .paper-question-content {
+  opacity: 0.5;
+}
+
+.paper-question-section {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.paper-question-marks {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.paper-question-content p {
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.paper-question-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.paper-question-content:hover .paper-question-actions {
+  opacity: 1;
+}
+
+/* Question Content Preview */
+.question-content-preview {
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.option-preview {
+  padding: 8px 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
