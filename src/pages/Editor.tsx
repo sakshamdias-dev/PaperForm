@@ -240,6 +240,7 @@ export default function Editor() {
     if (getSubject(paper.subjectId)?.name) details.push(`Subject: ${getSubject(paper.subjectId)?.name}`);
     if (getClass(paper.classId)?.name) details.push(`Class: ${getClass(paper.classId)?.name}`);
     if (paper.date) details.push(`Date: ${new Date(paper.date).toLocaleDateString()}`);
+    if (paper.duration) details.push(`Duration: ${paper.duration} min`);
     details.push(`Max Marks: ${paper.maxMarks || totalMarks}`);
     doc.text(details.join('  |  '), pageWidth / 2, y, { align: 'center' });
     y += 8;
@@ -332,7 +333,7 @@ export default function Editor() {
             {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'}
           </p>
           <p className="editor-sidebar-subtitle">
-            {paper.qpCode} • {totalMarks} / {paper.maxMarks || totalMarks} marks
+            {paper.qpCode} • {totalMarks} / {paper.maxMarks || totalMarks} marks{paper.duration ? ` • ${paper.duration} min` : ''}
           </p>
         </div>
 
@@ -360,6 +361,7 @@ export default function Editor() {
               <span>Subject: {getSubject(paper.subjectId)?.name || '-'}</span>
               <span>Class: {getClass(paper.classId)?.name || '-'}</span>
               {paper.date && <span>Date: {new Date(paper.date).toLocaleDateString()}</span>}
+              {paper.duration && <span>Duration: {paper.duration} min</span>}
               <span>Marks: {totalMarks} / {paper.maxMarks || totalMarks}</span>
             </div>
             {paper.instructions && (

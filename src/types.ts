@@ -6,6 +6,7 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
+  schoolName?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -63,6 +64,7 @@ export interface QuestionPaper {
   instructions?: string;
   isPublished: boolean;
   totalMarks: number;
+  duration?: number;
   createdAt: number;
   updatedAt: number;
 }

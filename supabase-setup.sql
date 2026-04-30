@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   full_name VARCHAR(255),
+  school_name VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_profiles_auth FOREIGN KEY (id) 
@@ -135,13 +136,14 @@ CREATE POLICY "Users can delete their own classes"
 -- 5. QUESTION PAPERS TABLE (Metadata for each exam)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS public.question_papers (
+CREATE TABLE IF NOT EXISTS public.qp_metadata (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   qp_code VARCHAR(10) UNIQUE NOT NULL,
   teacher_id UUID NOT NULL,
   title VARCHAR(255) NOT NULL,
   date DATE,
   max_marks INTEGER,
+  duration INTEGER,
   course_id UUID,
   subject_id UUID,
   class_id UUID,
@@ -159,26 +161,26 @@ CREATE TABLE IF NOT EXISTS public.question_papers (
     REFERENCES public.classes(id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_qp_teacher_id ON public.question_papers(teacher_id);
-CREATE INDEX IF NOT EXISTS idx_qp_code ON public.question_papers(qp_code);
-CREATE INDEX IF NOT EXISTS idx_qp_updated_at ON public.question_papers(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_qp_teacher_id ON public.qp_metadata(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_qp_code ON public.qp_metadata(qp_code);
+CREATE INDEX IF NOT EXISTS idx_qp_updated_at ON public.qp_metadata(updated_at DESC);
 
-ALTER TABLE public.question_papers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qp_metadata ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own question papers"
-  ON public.question_papers FOR SELECT
+  ON public.qp_metadata FOR SELECT
   USING (teacher_id = auth.uid());
 
 CREATE POLICY "Users can create question papers"
-  ON public.question_papers FOR INSERT
+  ON public.qp_metadata FOR INSERT
   WITH CHECK (teacher_id = auth.uid());
 
 CREATE POLICY "Users can update their own question papers"
-  ON public.question_papers FOR UPDATE
+  ON public.qp_metadata FOR UPDATE
   USING (teacher_id = auth.uid());
 
 CREATE POLICY "Users can delete their own question papers"
-  ON public.question_papers FOR DELETE
+  ON public.qp_metadata FOR DELETE
   USING (teacher_id = auth.uid());
 
 -- ============================================================================
@@ -248,7 +250,7 @@ CREATE TABLE IF NOT EXISTS public.paper_questions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_pq_paper FOREIGN KEY (paper_id)
-    REFERENCES public.question_papers(id) ON DELETE CASCADE,
+    REFERENCES public.qp_metadata(id) ON DELETE CASCADE,
   CONSTRAINT fk_pq_question FOREIGN KEY (question_id)
     REFERENCES public.questions(id) ON DELETE CASCADE,
   CONSTRAINT uk_paper_question UNIQUE (paper_id, question_id)
@@ -265,25 +267,25 @@ ALTER TABLE public.paper_questions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view paper questions"
   ON public.paper_questions FOR SELECT
   USING (paper_id IN (
-    SELECT id FROM public.question_papers WHERE teacher_id = auth.uid()
+    SELECT id FROM public.qp_metadata WHERE teacher_id = auth.uid()
   ));
 
 CREATE POLICY "Users can create paper questions"
   ON public.paper_questions FOR INSERT
   WITH CHECK (paper_id IN (
-    SELECT id FROM public.question_papers WHERE teacher_id = auth.uid()
+    SELECT id FROM public.qp_metadata WHERE teacher_id = auth.uid()
   ));
 
 CREATE POLICY "Users can update paper questions"
   ON public.paper_questions FOR UPDATE
   USING (paper_id IN (
-    SELECT id FROM public.question_papers WHERE teacher_id = auth.uid()
+    SELECT id FROM public.qp_metadata WHERE teacher_id = auth.uid()
   ));
 
 CREATE POLICY "Users can delete paper questions"
   ON public.paper_questions FOR DELETE
   USING (paper_id IN (
-    SELECT id FROM public.question_papers WHERE teacher_id = auth.uid()
+    SELECT id FROM public.qp_metadata WHERE teacher_id = auth.uid()
   ));
 
 -- ============================================================================
@@ -319,8 +321,8 @@ CREATE TRIGGER update_classes_timestamp BEFORE UPDATE ON public.classes
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Question Papers trigger
-DROP TRIGGER IF EXISTS update_qp_timestamp ON public.question_papers;
-CREATE TRIGGER update_qp_timestamp BEFORE UPDATE ON public.question_papers
+DROP TRIGGER IF EXISTS update_qp_timestamp ON public.qp_metadata;
+CREATE TRIGGER update_qp_timestamp BEFORE UPDATE ON public.qp_metadata
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Questions trigger
@@ -349,7 +351,7 @@ BEGIN
   
   -- Check for uniqueness, retry if needed (max 10 attempts)
   FOR i IN 1..10 LOOP
-    IF NOT EXISTS (SELECT 1 FROM public.question_papers WHERE qp_code = code_part) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.qp_metadata WHERE qp_code = code_part) THEN
       NEW.qp_code := code_part;
       RETURN NEW;
     END IF;
@@ -363,9 +365,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS generate_qp_code_trigger ON public.question_papers;
+DROP TRIGGER IF EXISTS generate_qp_code_trigger ON public.qp_metadata;
 CREATE TRIGGER generate_qp_code_trigger 
-  BEFORE INSERT ON public.question_papers
+  BEFORE INSERT ON public.qp_metadata
   FOR EACH ROW EXECUTE FUNCTION generate_qp_code();
 
 -- ============================================================================
@@ -375,8 +377,8 @@ CREATE TRIGGER generate_qp_code_trigger
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
-  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', 'Teacher'))
+  INSERT INTO public.profiles (id, email, full_name, school_name)
+  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', 'Teacher'), COALESCE(NEW.raw_user_meta_data->>'school_name', ''))
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
@@ -426,3 +428,9 @@ $$ LANGUAGE plpgsql;
 -- INSERT INTO public.courses (teacher_id, name) VALUES (auth.uid(), 'B.Tech');
 -- INSERT INTO public.subjects (teacher_id, name) VALUES (auth.uid(), 'Physics');
 -- INSERT INTO public.classes (teacher_id, name) VALUES (auth.uid(), 'Section A');
+
+-- ============================================================================
+-- 13. MIGRATION: Add duration column (run this if table already exists)
+-- ============================================================================
+
+-- ALTER TABLE public.qp_metadata ADD COLUMN IF NOT EXISTS duration INTEGER;

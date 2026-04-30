@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, Trash2, Copy, Edit, FolderOpen, LogOut, Loader2, BookOpen, Users, GraduationCap } from 'lucide-react';
+import { FileText, Plus, Trash2, Copy, Edit, FolderOpen, LogOut, Loader2, BookOpen, Users, GraduationCap, Search } from 'lucide-react';
 import { useStore } from '../store';
 import { supabase } from '../supabase';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, setUser, questionPapers, courses, subjects, classes, fetchCourses, fetchSubjects, fetchClasses, fetchQuestionPapers, createQuestionPaper, deleteQuestionPaper, duplicateQuestionPaper, createCourse, createSubject, createClass } = useStore();
+  const { user, questionPapers, courses, subjects, classes, fetchCourses, fetchSubjects, fetchClasses, fetchQuestionPapers, createQuestionPaper, deleteQuestionPaper, duplicateQuestionPaper, createCourse, createSubject, createClass } = useStore();
   const [search, setSearch] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [newSubjectId, setNewSubjectId] = useState('');
   const [newClassId, setNewClassId] = useState('');
   const [newInstructions, setNewInstructions] = useState('');
+  const [newDuration, setNewDuration] = useState(180);
   const [creating, setCreating] = useState(false);
   
   // Settings form state
@@ -55,7 +56,8 @@ export default function Dashboard() {
         newCourseId || undefined,
         newSubjectId || undefined,
         newClassId || undefined,
-        newInstructions || undefined
+        newInstructions || undefined,
+        newDuration || undefined
       );
       setShowNewModal(false);
       setNewTitle('');
@@ -65,6 +67,7 @@ export default function Dashboard() {
       setNewSubjectId('');
       setNewClassId('');
       setNewInstructions('');
+      setNewDuration(180);
       setCreating(false);
       navigate(`/editor/${id}`);
     }
@@ -90,8 +93,6 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser({ id: '', fullName: '', email: '', createdAt: 0, updatedAt: 0 });
-    navigate('/login');
   };
 
   const handleDuplicate = (e: React.MouseEvent, id: string) => {
@@ -146,13 +147,22 @@ export default function Dashboard() {
           </div>
           <div className="nav-item" onClick={() => setShowSettingsModal(true)}>
             <BookOpen size={20} />
-            <span>Settings</span>
+            <span>Paper Details</span>
           </div>
         </nav>
         <div className="sidebar-footer">
-          <div className="nav-item" onClick={handleLogout} style={{ cursor: 'pointer' }}>
-            <LogOut size={20} />
-            <span>Sign Out</span>
+          <div className="user-profile">
+            <div className="user-avatar">
+              {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="user-info">
+              <span className="user-name">{user?.fullName || 'User'}</span>
+              <span className="user-email">{user?.email}</span>
+              {user?.schoolName && <span className="user-school">{user.schoolName}</span>}
+            </div>
+            <button className="logout-btn" onClick={handleLogout} title="Sign Out">
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </aside>
@@ -165,13 +175,16 @@ export default function Dashboard() {
               <p className="dashboard-subtitle">Welcome back, {user?.fullName}</p>
             </div>
             <div className="filters">
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search papers..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <div className="search-wrapper">
+                <Search size={18} className="search-icon" />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search papers..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
               <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}>
                 <option value="">All Courses</option>
                 {courses.map((c) => (
@@ -328,6 +341,16 @@ export default function Dashboard() {
                     onChange={(e) => setNewDate(e.target.value)}
                   />
                 </div>
+                <div className="property-field">
+                  <label className="property-label">Duration (minutes)</label>
+                  <input
+                    type="number"
+                    className="property-input"
+                    value={newDuration}
+                    onChange={(e) => setNewDuration(parseInt(e.target.value) || 180)}
+                    min={1}
+                  />
+                </div>
               </div>
               <div className="property-field">
                 <label className="property-label">Instructions</label>
@@ -357,29 +380,29 @@ export default function Dashboard() {
         <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
             <div className="modal-header">
-              <h2 className="modal-title">Settings</h2>
+              <h2 className="modal-title">Paper Details</h2>
             </div>
             <div className="modal-content">
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 15, marginBottom: 20 }}>
                 <button
                   className={`btn ${settingsTab === 'courses' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setSettingsTab('courses')}
                 >
-                  <GraduationCap size={16} />
+                  <GraduationCap size={18} />
                   Courses
                 </button>
                 <button
                   className={`btn ${settingsTab === 'subjects' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setSettingsTab('subjects')}
                 >
-                  <BookOpen size={16} />
+                  <BookOpen size={18} />
                   Subjects
                 </button>
                 <button
                   className={`btn ${settingsTab === 'classes' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setSettingsTab('classes')}
                 >
-                  <Users size={16} />
+                  <Users size={18} />
                   Classes
                 </button>
               </div>

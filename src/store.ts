@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { Course, Subject, Class, Question, QuestionPaper, PaperQuestion, User, QuestionType, Difficulty, PaperSection } from './types';
 import { supabase } from './supabase';
 
@@ -17,6 +16,7 @@ interface AppState {
   setUser: (user: User | null) => void;
   setCurrentPaper: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
+  logout: () => void;
   
   fetchCourses: () => Promise<void>;
   fetchSubjects: () => Promise<void>;
@@ -37,7 +37,7 @@ interface AppState {
   updateClass: (id: string, name: string) => Promise<void>;
   deleteClass: (id: string) => Promise<void>;
   
-  createQuestionPaper: (title: string, date?: string, maxMarks?: number, courseId?: string, subjectId?: string, classId?: string, instructions?: string) => Promise<string>;
+  createQuestionPaper: (title: string, date?: string, maxMarks?: number, courseId?: string, subjectId?: string, classId?: string, instructions?: string, duration?: number) => Promise<string>;
   updateQuestionPaper: (id: string, updates: Partial<QuestionPaper>) => Promise<void>;
   deleteQuestionPaper: (id: string) => Promise<void>;
   duplicateQuestionPaper: (id: string) => string;
@@ -54,10 +54,8 @@ interface AppState {
 
 const generateId = () => crypto.randomUUID();
 
-export const useStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      user: null,
+export const useStore = create<AppState>()((set, get) => ({
+    user: null,
       courses: [],
       subjects: [],
       classes: [],
@@ -70,6 +68,18 @@ export const useStore = create<AppState>()(
       setUser: (user) => set({ user }),
       setCurrentPaper: (id) => set({ currentPaperId: id }),
       setLoading: (loading) => set({ loading }),
+      logout: () => {
+        set({
+          user: null,
+          courses: [],
+          subjects: [],
+          classes: [],
+          questionPapers: [],
+          questions: [],
+          paperQuestions: new Map(),
+          currentPaperId: null,
+        });
+      },
 
       fetchCourses: async () => {
         const { user } = get();
@@ -143,7 +153,7 @@ export const useStore = create<AppState>()(
         
         set({ loading: true });
         const { data, error } = await supabase
-          .from('question_papers')
+          .from('qp_metadata')
           .select('*')
           .eq('teacher_id', user.id)
           .order('updated_at', { ascending: false });
@@ -162,6 +172,7 @@ export const useStore = create<AppState>()(
             instructions: qp.instructions,
             isPublished: qp.is_published || false,
             totalMarks: qp.max_marks || 0,
+            duration: qp.duration || 0,
             createdAt: new Date(qp.created_at).getTime(),
             updatedAt: new Date(qp.updated_at).getTime(),
           }));
@@ -355,7 +366,7 @@ export const useStore = create<AppState>()(
         await supabase.from('classes').delete().eq('id', id);
       },
 
-      createQuestionPaper: async (title: string, date?: string, maxMarks?: number, courseId?: string, subjectId?: string, classId?: string, instructions?: string) => {
+      createQuestionPaper: async (title: string, date?: string, maxMarks?: number, courseId?: string, subjectId?: string, classId?: string, instructions?: string, duration?: number) => {
         const { user } = get();
         if (!user?.id) return '';
         
@@ -374,6 +385,7 @@ export const useStore = create<AppState>()(
           instructions,
           isPublished: false,
           totalMarks: 0,
+          duration,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -381,7 +393,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ questionPapers: [newPaper, ...state.questionPapers], currentPaperId: id }));
 
         if (user?.id) {
-          await supabase.from('question_papers').insert({
+          await supabase.from('qp_metadata').insert({
             id,
             teacher_id: user.id,
             title,
@@ -392,6 +404,7 @@ export const useStore = create<AppState>()(
             class_id: classId,
             instructions: instructions || '',
             is_published: false,
+            duration,
           });
         }
 
@@ -416,8 +429,9 @@ export const useStore = create<AppState>()(
         if (updates.classId !== undefined) supabaseUpdates.class_id = updates.classId;
         if (updates.instructions !== undefined) supabaseUpdates.instructions = updates.instructions;
         if (updates.isPublished !== undefined) supabaseUpdates.is_published = updates.isPublished;
+        if (updates.duration !== undefined) supabaseUpdates.duration = updates.duration;
 
-        await supabase.from('question_papers').update(supabaseUpdates).eq('id', id);
+        await supabase.from('qp_metadata').update(supabaseUpdates).eq('id', id);
       },
 
       deleteQuestionPaper: async (id: string) => {
@@ -426,7 +440,7 @@ export const useStore = create<AppState>()(
           currentPaperId: state.currentPaperId === id ? null : state.currentPaperId,
         }));
 
-        await supabase.from('question_papers').delete().eq('id', id);
+        await supabase.from('qp_metadata').delete().eq('id', id);
       },
 
       duplicateQuestionPaper: (id: string) => {
@@ -607,9 +621,4 @@ export const useStore = create<AppState>()(
         await supabase.from('paper_questions').upsert(updates);
       },
     }),
-    {
-      name: 'paperform-storage',
-      partialize: (state) => ({ user: state.user }),
-    }
-  )
 );
