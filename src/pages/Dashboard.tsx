@@ -158,7 +158,6 @@ export default function Dashboard() {
             <div className="user-info">
               <span className="user-name">{user?.fullName || 'User'}</span>
               <span className="user-email">{user?.email}</span>
-              {user?.schoolName && <span className="user-school">{user.schoolName}</span>}
             </div>
             <button className="logout-btn" onClick={handleLogout} title="Sign Out">
               <LogOut size={18} />

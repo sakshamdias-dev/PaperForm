@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   DndContext,
@@ -22,44 +22,54 @@ import {
   Trash2,
   GripVertical,
   Download,
-  ChevronDown,
-  List,
   ArrowLeft,
   Check,
+  ListChecks,
+  AlignLeft,
+  CheckSquare,
+  CircleCheck,
+  NotebookPen,
+  Search,
+  Pencil,
 } from 'lucide-react';
 import { useStore } from '../store';
-import type { Question, PaperQuestion, QuestionType, PaperSection } from '../types';
-import { jsPDF } from 'jspdf';
+import type { Question, PaperQuestion, QuestionType, PaperSection, Difficulty } from '../types';
 
-interface QuestionBankItemProps {
+const BLOCK_TYPES: { type: QuestionType; label: string; icon: typeof AlignLeft; description: string; header: string }[] = [
+  { type: 'mcq', label: 'Multiple Choice', icon: ListChecks, description: 'Question with options A-D', header: 'Multiple Choice:' },
+  { type: 'subjective', label: 'Subjective Question', icon: AlignLeft, description: 'Answer the following', header: 'Answer the following:' },
+  { type: 'fillblank', label: 'Fill in the Blank', icon: NotebookPen, description: 'Complete the sentence', header: 'Fill in the blanks:' },
+  { type: 'truefalse', label: 'True / False', icon: CircleCheck, description: 'Binary choice question', header: 'True or False:' },
+  { type: 'match', label: 'Match the Following', icon: CheckSquare, description: 'Match items in columns', header: 'Match the following:' },
+];
+
+function getTypeHeader(type: QuestionType): string {
+  return BLOCK_TYPES.find(b => b.type === type)?.header || type;
+}
+
+interface SortableQuestionProps {
+  paperQuestion: PaperQuestion;
   question: Question;
   isSelected: boolean;
-  onSelect: () => void;
-}
-
-function QuestionBankItem({ question, isSelected, onSelect }: QuestionBankItemProps) {
-  return (
-    <div
-      className={`question-bank-item ${isSelected ? 'selected' : ''}`}
-      onClick={onSelect}
-    >
-      <div className="question-bank-item-content">
-        <span className="question-type-badge">{question.questionType}</span>
-        <p>{question.content.slice(0, 100)}{question.content.length > 100 ? '...' : ''}</p>
-      </div>
-    </div>
-  );
-}
-
-interface PaperQuestionItemProps {
-  paperQuestion: PaperQuestion;
-  question: Question | undefined;
-  isSelected: boolean;
+  questionNumber: number;
   onSelect: () => void;
   onRemove: () => void;
+  onEdit: () => void;
 }
 
-function SortablePaperQuestion({ paperQuestion, question, isSelected, onSelect, onRemove }: PaperQuestionItemProps) {
+function getMaxWordsInOptions(options: string[]): number {
+  return Math.max(...options.map(o => o.trim().split(/\s+/).filter(Boolean).length));
+}
+
+function getMcqLayout(options: string[]): string {
+  if (options.length === 0) return 'vertical';
+  const maxWords = getMaxWordsInOptions(options);
+  if (maxWords > 5) return 'vertical';
+  if (maxWords > 2) return 'grid';
+  return 'horizontal';
+}
+
+function SortableQuestion({ paperQuestion, question, isSelected, questionNumber, onSelect, onRemove, onEdit }: SortableQuestionProps) {
   const {
     attributes,
     listeners,
@@ -74,28 +84,51 @@ function SortablePaperQuestion({ paperQuestion, question, isSelected, onSelect, 
     transition,
   };
 
-  if (!question) return null;
+  const mcqLayout = question.questionType === 'mcq' ? getMcqLayout(question.options || []) : 'vertical';
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`paper-question-wrapper ${isDragging ? 'dragging' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`rendered-question-item ${isDragging ? 'dragging' : ''} ${isSelected ? 'selected' : ''}`}
       onClick={onSelect}
     >
-      <div className="drag-handle" {...attributes} {...listeners}>
-        <GripVertical size={16} />
+      {/* Admin overlay - hidden on print */}
+      <div className="admin-overlay-left">
+        <div className="drag-handle" {...attributes} {...listeners}>
+          <GripVertical size={14} />
+        </div>
       </div>
-      <div className="paper-question-content">
-        <span className="paper-question-section">Section {paperQuestion.section}</span>
-        <span className="paper-question-marks">{paperQuestion.marks} marks</span>
-        <p>{question.content.slice(0, 80)}{question.content.length > 80 ? '...' : ''}</p>
-        <span className="question-type-badge small">{question.questionType}</span>
-      </div>
-      <div className="paper-question-actions">
-        <button className="block-action-btn danger" onClick={(e) => { e.stopPropagation(); onRemove(); }}>
-          <Trash2 size={14} />
+      <div className="admin-overlay-right">
+        <span className="marks-text">{paperQuestion.marks} marks</span>
+        <button className="hover-action-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit">
+          <Pencil size={12} />
         </button>
+        <button className="hover-action-btn danger" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Delete">
+          <Trash2 size={12} />
+        </button>
+      </div>
+
+      {/* Clean HTML - this is exactly what prints */}
+      <div className="clean-question">
+        <span className="q-number">{questionNumber}.</span>
+        <span className="q-text">{question.content}</span>
+        {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
+          <div className={`q-options q-options-${mcqLayout}`}>
+            {question.options.map((opt, i) => (
+              <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
+            ))}
+          </div>
+        )}
+        {question.questionType === 'truefalse' && (
+          <div className="q-options q-options-horizontal">
+            <span className="q-option">(a) True</span>
+            <span className="q-option">(b) False</span>
+          </div>
+        )}
+        {(question.questionType === 'subjective' || question.questionType === 'fillblank') && (
+          <div className="q-answer-space" />
+        )}
       </div>
     </div>
   );
@@ -112,29 +145,41 @@ export default function Editor() {
     subjects,
     classes,
     fetchPaperQuestions,
-    addQuestionToPaper,
-    updatePaperQuestion,
+    fetchQuestions,
     removeQuestionFromPaper,
     reorderPaperQuestions,
+    updatePaperQuestion,
+    createAndAddQuestion,
+    updateQuestion,
   } = useStore();
 
   const paper = questionPapers.find(qp => qp.id === id);
-  const [showQuestionBank, setShowQuestionBank] = useState(false);
   const [selectedPQId, setSelectedPQId] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [bankSearch, setBankSearch] = useState('');
-  const [bankFilterSubject, setBankFilterSubject] = useState('');
-  const [bankFilterType, setBankFilterType] = useState<QuestionType | ''>('');
+  const [suggestedSearch, setSuggestedSearch] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [draftType, setDraftType] = useState<QuestionType | null>(null);
+  const [draftContent, setDraftContent] = useState('');
+  const [draftOptions, setDraftOptions] = useState(['', '', '', '']);
+  const [draftSection, setDraftSection] = useState<PaperSection>('A');
+  const [draftMarks, setDraftMarks] = useState(1);
+  const [draftDifficulty, setDraftDifficulty] = useState<Difficulty>('medium');
+  const [draftTypeHeader, setDraftTypeHeader] = useState('');
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const paperRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (id) {
       fetchPaperQuestions(id);
+      fetchQuestions();
     }
   }, [id]);
 
@@ -158,23 +203,112 @@ export default function Editor() {
     }
   };
 
-  const handleAddQuestion = (questionId: string) => {
-    if (id) {
-      addQuestionToPaper(id, questionId, 'A', 1);
-      showToastMessage('Question added to paper!');
+  const handleSelectBlockType = (type: QuestionType) => {
+    setDraftType(type);
+    setDraftContent('');
+    setDraftOptions(['', '', '', '']);
+    setDraftSection(selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.section || 'A') : 'A');
+    setDraftMarks(selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.marks || 1) : 1);
+    setDraftDifficulty('medium');
+    setDraftTypeHeader(getTypeHeader(type));
+    setSelectedPQId(null);
+  };
+
+  const handleAddDraftToPaper = async () => {
+    if (!id || !draftType || !draftContent.trim()) return;
+    setSaving(true);
+    try {
+      const options = draftType === 'mcq' ? draftOptions.filter(o => o.trim()) : [];
+      const result = await createAndAddQuestion(
+        id,
+        draftContent.trim(),
+        draftType,
+        options.length > 0 ? options : undefined,
+        draftSection,
+        draftMarks,
+        undefined,
+        paper?.subjectId,
+        paper?.classId,
+        draftDifficulty,
+        undefined,
+        undefined,
+        draftTypeHeader || undefined,
+      );
+      if (result) {
+        showToastMessage('Question added to paper!');
+        setDraftType(null);
+        setDraftContent('');
+        setDraftOptions(['', '', '', '']);
+        setEditingQuestionId(null);
+      } else {
+        showToastMessage('Failed to add question. Check console.');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUpdatePQ = (pqId: string, section: PaperSection, marks: number) => {
-    updatePaperQuestion(pqId, { section, marks });
-    showToastMessage('Question updated!');
+  const handleUpdateQuestion = async () => {
+    if (!editingQuestionId || !draftType || !draftContent.trim()) return;
+    setSaving(true);
+    try {
+      const options = draftType === 'mcq' ? draftOptions.filter(o => o.trim()) : [];
+      const pq = paperQuestionsList.find(p => p.questionId === editingQuestionId);
+      if (pq) {
+        handleUpdatePQ(pq.id, draftSection, draftMarks);
+      }
+      await updateQuestion(editingQuestionId, {
+        content: draftContent.trim(),
+        questionType: draftType,
+        options: options.length > 0 ? options : undefined,
+        difficulty: draftDifficulty,
+        typeHeader: draftTypeHeader || undefined,
+      });
+      showToastMessage('Question updated!');
+      setEditingQuestionId(null);
+      setDraftType(null);
+      setDraftContent('');
+      setDraftOptions(['', '', '', '']);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleRemovePQ = (_pqId: string, questionId: string) => {
     if (id) {
       removeQuestionFromPaper(id, questionId);
+      if (selectedPQId === _pqId) setSelectedPQId(null);
       showToastMessage('Question removed');
     }
+  };
+
+  const handleUpdatePQ = (pqId: string, section: PaperSection, marks: number) => {
+    updatePaperQuestion(pqId, { section, marks });
+  };
+
+  const handleEditQuestion = () => {
+    const pq = paperQuestionsList.find(pq => pq.id === selectedPQId);
+    if (!pq) return;
+    const q = questions.find(q => q.id === pq.questionId);
+    if (!q) return;
+    setEditingQuestionId(q.id);
+    setDraftType(q.questionType);
+    setDraftContent(q.content);
+    const opts = q.options || [];
+    setDraftOptions([opts[0] || '', opts[1] || '', opts[2] || '', opts[3] || '']);
+    setDraftSection(pq.section);
+    setDraftMarks(pq.marks);
+    setDraftDifficulty(q.difficulty || 'medium');
+    setDraftTypeHeader(q.typeHeader || '');
+    setSelectedPQId(null);
+  };
+
+  const resetDraft = () => {
+    setDraftType(null);
+    setEditingQuestionId(null);
+    setDraftContent('');
+    setDraftOptions(['', '', '', '']);
+    setDraftTypeHeader('');
   };
 
   const getQuestion = (questionId: string) => questions.find(q => q.id === questionId);
@@ -182,132 +316,72 @@ export default function Editor() {
   const getSubject = (id?: string) => subjects.find(s => s.id === id);
   const getClass = (id?: string) => classes.find(c => c.id === id);
 
-  const filteredQuestions = useMemo(() => {
-    return questions
-      .filter(q => !bankSearch || q.content.toLowerCase().includes(bankSearch.toLowerCase()))
-      .filter(q => !bankFilterSubject || q.subjectId === bankFilterSubject)
-      .filter(q => !bankFilterType || q.questionType === bankFilterType);
-  }, [questions, bankSearch, bankFilterSubject, bankFilterType]);
-
   const selectedPQ = useMemo(() => {
     return paperQuestionsList.find(pq => pq.id === selectedPQId);
   }, [paperQuestionsList, selectedPQId]);
 
   const selectedQuestion = useMemo(() => {
     if (!selectedPQ) return null;
-    return questions.find(q => q.id === selectedPQ?.questionId);
+    return questions.find(q => q.id === selectedPQ.questionId);
   }, [selectedPQ, questions]);
 
   const totalMarks = useMemo(() => {
     return paperQuestionsList.reduce((sum, pq) => sum + pq.marks, 0);
   }, [paperQuestionsList]);
 
-  const groupedBySection = useMemo(() => {
-    const groups: Record<PaperSection, PaperQuestion[]> = { A: [], B: [], C: [], D: [] };
-    paperQuestionsList.forEach(pq => {
-      groups[pq.section].push(pq);
+  const sequentialRenderedList = useMemo(() => {
+    const items: ({ type: 'header'; header: string } | { type: 'question'; pq: PaperQuestion; q: Question })[] = [];
+    let lastHeader = '';
+    paperQuestionsList.forEach((pq) => {
+      const q = getQuestion(pq.questionId);
+      if (!q) return;
+      const currentHeader = q.typeHeader || '';
+      if (currentHeader && currentHeader !== lastHeader) {
+        items.push({ type: 'header' as const, header: currentHeader });
+        lastHeader = currentHeader;
+      } else if (!currentHeader && lastHeader) {
+        lastHeader = '';
+      }
+      items.push({ type: 'question' as const, pq, q });
     });
-    return groups;
+    return items;
   }, [paperQuestionsList]);
 
+  const suggestedQuestions = useMemo(() => {
+    return questions
+      .filter(q => !suggestedSearch || q.content.toLowerCase().includes(suggestedSearch.toLowerCase()))
+      .slice(0, 15);
+  }, [questions, suggestedSearch]);
+
+  const handleAddSuggested = async (questionId: string) => {
+    if (!id) return;
+    const q = questions.find(q => q.id === questionId);
+    if (!q) return;
+    setSaving(true);
+    try {
+      await createAndAddQuestion(
+        id,
+        q.content,
+        q.questionType,
+        q.options,
+        'A',
+        1,
+        undefined,
+        q.subjectId,
+        q.classId,
+        q.difficulty,
+        undefined,
+        undefined,
+        q.typeHeader,
+      );
+      showToastMessage('Question added from bank!');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const exportPDF = () => {
-    if (!paper) return;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidth = 210;
-    const margin = 20;
-    const contentWidth = pageWidth - margin * 2;
-    let y = 20;
-
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Question Paper', pageWidth / 2, y, { align: 'center' });
-    y += 10;
-
-    doc.setFontSize(16);
-    doc.text(paper.title, pageWidth / 2, y, { align: 'center' });
-    y += 8;
-
-    if (paper.qpCode) {
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Code: ${paper.qpCode}`, pageWidth / 2, y, { align: 'center' });
-      y += 6;
-    }
-
-    doc.setFontSize(11);
-    const details: string[] = [];
-    if (getCourse(paper.courseId)?.name) details.push(`Course: ${getCourse(paper.courseId)?.name}`);
-    if (getSubject(paper.subjectId)?.name) details.push(`Subject: ${getSubject(paper.subjectId)?.name}`);
-    if (getClass(paper.classId)?.name) details.push(`Class: ${getClass(paper.classId)?.name}`);
-    if (paper.date) details.push(`Date: ${new Date(paper.date).toLocaleDateString()}`);
-    if (paper.duration) details.push(`Duration: ${paper.duration} min`);
-    details.push(`Max Marks: ${paper.maxMarks || totalMarks}`);
-    doc.text(details.join('  |  '), pageWidth / 2, y, { align: 'center' });
-    y += 8;
-
-    if (paper.instructions) {
-      y += 4;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      const instLines = doc.splitTextToSize(`Instructions: ${paper.instructions}`, contentWidth);
-      doc.text(instLines, margin, y, { align: 'left' });
-      y += instLines.length * 4 + 6;
-    }
-
-    y += 6;
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 8;
-
-    const sections: PaperSection[] = ['A', 'B', 'C', 'D'];
-    let qNum = 1;
-
-    sections.forEach(section => {
-      const sectionQuestions = groupedBySection[section];
-      if (sectionQuestions.length === 0) return;
-
-      y += 4;
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Section ${section}`, margin, y);
-      y += 7;
-
-      sectionQuestions.forEach(pq => {
-        const q = getQuestion(pq.questionId);
-        if (!q) return;
-
-        if (y > 270) {
-          doc.addPage();
-          y = 20;
-        }
-
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${qNum}.`, margin, y);
-        const qStart = margin + 10;
-
-        if (q.questionType === 'mcq') {
-          const lines = doc.splitTextToSize(q.content, contentWidth - 10);
-          doc.setFont('helvetica', 'normal');
-          doc.text(lines, qStart, y);
-          y += lines.length * 5 + 3;
-          doc.setFontSize(10);
-          (q.options || []).forEach((opt, i) => {
-            const optLines = doc.splitTextToSize(`${String.fromCharCode(65 + i)}. ${opt}`, contentWidth - 25);
-            doc.text(optLines, qStart + 5, y);
-            y += optLines.length * 4 + 1;
-          });
-        } else {
-          const lines = doc.splitTextToSize(`${q.content} (${pq.marks} marks)`, contentWidth - 10);
-          doc.setFont('helvetica', 'normal');
-          doc.text(lines, qStart, y);
-          y += lines.length * 5 + 3;
-        }
-        qNum++;
-      });
-    });
-
-    doc.save(`${paper.title.replace(/\s+/g, '_')}.pdf`);
+    window.print();
   };
 
   if (!paper) {
@@ -321,6 +395,7 @@ export default function Editor() {
 
   return (
     <div className="editor-layout">
+      {/* LEFT SIDEBAR */}
       <div className="editor-sidebar">
         <div className="editor-sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -338,20 +413,67 @@ export default function Editor() {
         </div>
 
         <div className="block-palette">
-          <div className="block-palette-section">
-            <h3 className="block-palette-title">Actions</h3>
-            <div className="block-items">
-              <button className="block-item" onClick={() => setShowQuestionBank(true)}>
-                <div className="block-item-icon mcq"><List size={16} /></div>
-                <span>Add from Bank</span>
+          <h3 className="block-palette-title">Question Blocks</h3>
+          <div className="block-items">
+            {BLOCK_TYPES.map(({ type, label, icon: Icon, description }) => (
+              <button
+                key={type}
+                className={`block-item ${draftType === type ? 'active' : ''}`}
+                onClick={() => handleSelectBlockType(type)}
+              >
+                <div className="block-item-icon"><Icon size={16} /></div>
+                <div className="block-item-info">
+                  <span className="block-item-label">{label}</span>
+                  <span className="block-item-desc">{description}</span>
+                </div>
               </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <h3 className="block-palette-title">Suggested Questions</h3>
+          <div style={{ padding: '0 12px 8px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              <input
+                type="text"
+                placeholder="Search your bank..."
+                value={suggestedSearch}
+                onChange={(e) => setSuggestedSearch(e.target.value)}
+                style={{ width: '100%', paddingLeft: 28, fontSize: 12 }}
+                className="property-input"
+              />
             </div>
+          </div>
+          <div className="question-bank-list" style={{ flex: 1 }}>
+            {suggestedQuestions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                <p>No questions in your bank yet</p>
+                <p>Create one using the blocks above</p>
+              </div>
+            ) : (
+              suggestedQuestions.map(q => (
+                <div
+                  key={q.id}
+                  className="question-bank-item"
+                  onClick={() => handleAddSuggested(q.id)}
+                >
+                  <div className="question-bank-item-content">
+                    <span className="question-type-badge">{q.questionType}</span>
+                    <p>{q.content.slice(0, 80)}{q.content.length > 80 ? '...' : ''}</p>
+                  </div>
+                  <Plus size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
 
+      {/* CENTER - Clean HTML Paper (WYSIWYG) */}
       <div className="editor-canvas">
-        <div className="paper-container">
+        <div className="paper-container" ref={paperRef} id="printable-paper">
           <div className="paper-header">
             <h1 className="paper-school-name">Question Paper</h1>
             <h2 className="paper-exam-title">{paper.title}</h2>
@@ -377,7 +499,7 @@ export default function Editor() {
                 <Plus size={28} />
               </div>
               <h3>No questions yet</h3>
-              <p>Add questions from the Question Bank</p>
+              <p>Select a question block from the left panel to get started</p>
             </div>
           ) : (
             <div className="paper-questions-list">
@@ -390,25 +512,26 @@ export default function Editor() {
                   items={paperQuestionsList.map(pq => pq.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {(['A', 'B', 'C', 'D'] as PaperSection[]).map(section => {
-                    const sectionQs = groupedBySection[section];
-                    if (sectionQs.length === 0) return null;
-                    return (
-                      <div key={section} className="paper-section">
-                        <div className="section-divider">
-                          <span>Section {section}</span>
+                  {sequentialRenderedList.map((item) => {
+                    if (item.type === 'header') {
+                      return (
+                        <div key={item.header} className="type-header">
+                          <span>{item.header}</span>
                         </div>
-                        {sectionQs.map(pq => (
-                          <SortablePaperQuestion
-                            key={pq.id}
-                            paperQuestion={pq}
-                            question={getQuestion(pq.questionId)}
-                            isSelected={selectedPQId === pq.id}
-                            onSelect={() => setSelectedPQId(pq.id)}
-                            onRemove={() => handleRemovePQ(pq.id, pq.questionId)}
-                          />
-                        ))}
-                      </div>
+                      );
+                    }
+                    const globalIndex = paperQuestionsList.findIndex(p => p.id === item.pq.id) + 1;
+                    return (
+                      <SortableQuestion
+                        key={item.pq.id}
+                        paperQuestion={item.pq}
+                        question={item.q}
+                        isSelected={selectedPQId === item.pq.id}
+                        questionNumber={globalIndex}
+                        onSelect={() => { setSelectedPQId(item.pq.id); setDraftType(null); }}
+                        onRemove={() => handleRemovePQ(item.pq.id, item.pq.questionId)}
+                        onEdit={() => handleEditQuestion()}
+                      />
                     );
                   })}
                 </SortableContext>
@@ -418,14 +541,146 @@ export default function Editor() {
         </div>
       </div>
 
+      {/* RIGHT PANEL */}
       <div className="property-panel">
         <div className="property-panel-header">
           <h2 className="property-panel-title">
-            {selectedPQ ? 'Edit Question' : 'Properties'}
+            {draftType ? (editingQuestionId ? 'Edit Question' : 'Add Question') : selectedPQ ? 'Properties' : 'Properties'}
           </h2>
         </div>
         <div className="property-panel-content">
-          {selectedPQ && selectedQuestion ? (
+          {draftType && (
+            <>
+              <div className="property-field">
+                <label className="property-label editor-label">Question Type</label>
+                <div className="question-type-badge">{BLOCK_TYPES.find(b => b.type === draftType)?.label || draftType}</div>
+              </div>
+              <div className="property-field">
+                <label className="property-label editor-label">Question Content</label>
+                <textarea
+                  className="property-textarea"
+                  placeholder="Enter your question..."
+                  value={draftContent}
+                  onChange={(e) => setDraftContent(e.target.value)}
+                  rows={draftType === 'subjective' ? 4 : 3}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label editor-label">Section Header Label</label>
+                <input
+                  type="text"
+                  className="property-input"
+                  placeholder="e.g., Answer the following:"
+                  value={draftTypeHeader}
+                  onChange={(e) => setDraftTypeHeader(e.target.value)}
+                  style={{ marginBottom: 6 }}
+                />
+              </div>
+              {draftType === 'mcq' && (
+                <div className="property-field">
+                  <label className="property-label editor-label">Options</label>
+                  {draftOptions.map((opt, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      className="property-input"
+                      placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...draftOptions];
+                        newOpts[i] = e.target.value;
+                        setDraftOptions(newOpts);
+                      }}
+                      style={{ marginBottom: 6 }}
+                    />
+                  ))}
+                </div>
+              )}
+              {draftType === 'truefalse' && (
+                <div className="property-field">
+                  <label className="property-label editor-label">Answer</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-secondary" style={{ flex: 1 }}>True</button>
+                    <button className="btn btn-secondary" style={{ flex: 1 }}>False</button>
+                  </div>
+                </div>
+              )}
+              <div className="property-field">
+                <label className="property-label editor-label">Section</label>
+                <select
+                  className="property-input"
+                  value={draftSection}
+                  onChange={(e) => setDraftSection(e.target.value as PaperSection)}
+                >
+                  <option value="A">Section A</option>
+                  <option value="B">Section B</option>
+                  <option value="C">Section C</option>
+                  <option value="D">Section D</option>
+                </select>
+              </div>
+              <div className="property-field">
+                <label className="property-label editor-label">Marks</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={draftMarks}
+                  onChange={(e) => setDraftMarks(parseInt(e.target.value) || 1)}
+                  min={1}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label editor-label">Difficulty</label>
+                <select
+                  className="property-input"
+                  value={draftDifficulty}
+                  onChange={(e) => setDraftDifficulty(e.target.value as Difficulty)}
+                >
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              {editingQuestionId ? (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleUpdateQuestion}
+                    disabled={saving || !draftContent.trim()}
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    {saving ? 'Updating...' : 'Update Question'}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={resetDraft}
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleAddDraftToPaper}
+                    disabled={saving || !draftContent.trim()}
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    {saving ? 'Adding...' : 'Add to Paper'}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={resetDraft}
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </>
+          )}
+
+          {!draftType && selectedPQ && selectedQuestion && (
             <>
               <div className="property-field">
                 <label className="property-label editor-label">Question Type</label>
@@ -458,37 +713,38 @@ export default function Editor() {
                 <label className="property-label editor-label">Question Content</label>
                 <div className="question-content-preview">{selectedQuestion.content}</div>
               </div>
-              {selectedQuestion.questionType === 'mcq' && selectedQuestion.options && selectedQuestion.options.length > 0 && (
-                <div className="property-field">
-                  <label className="property-label editor-label">Options</label>
-                  <div className="options-list">
-                    {selectedQuestion.options.map((opt, i) => (
-                      <div key={i} className="option-preview">
-                        <span>{String.fromCharCode(65 + i)}. {opt}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <button
+                className="btn btn-primary"
+                onClick={handleEditQuestion}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                Edit Question Content
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setSelectedPQId(null)}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                Deselect
+              </button>
             </>
-          ) : (
+          )}
+
+          {!draftType && !selectedPQ && (
             <div className="no-selection">
               <div className="no-selection-icon">
-                <ChevronDown size={24} />
+                <Plus size={24} />
               </div>
-              <h3>No question selected</h3>
-              <p>Click on a question in the paper to edit</p>
+              <h3>Select or Create</h3>
+              <p>Click a question block on the left to create one, or click a question in the paper to edit</p>
             </div>
           )}
         </div>
       </div>
 
+      {/* BOTTOM TOOLBAR */}
       <div className="editor-toolbar">
-        <button className="toolbar-btn" onClick={() => setShowQuestionBank(true)}>
-          <List size={18} />
-          Question Bank
-        </button>
-        <button className="toolbar-btn primary" onClick={() => exportPDF()}>
+        <button className="toolbar-btn primary" onClick={exportPDF}>
           <Download size={18} />
           Export PDF
         </button>
@@ -498,72 +754,6 @@ export default function Editor() {
         <div className="toast-notification">
           <Check size={18} />
           {toastMessage}
-        </div>
-      )}
-
-      {/* Question Bank Modal */}
-      {showQuestionBank && (
-        <div className="modal-overlay" onClick={() => setShowQuestionBank(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Question Bank</h2>
-            </div>
-            <div className="modal-content">
-              <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                <input
-                  type="text"
-                  className="property-input"
-                  placeholder="Search questions..."
-                  value={bankSearch}
-                  onChange={(e) => setBankSearch(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <select
-                  className="property-input"
-                  value={bankFilterSubject}
-                  onChange={(e) => setBankFilterSubject(e.target.value)}
-                >
-                  <option value="">All Subjects</option>
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-                <select
-                  className="property-input"
-                  value={bankFilterType}
-                  onChange={(e) => setBankFilterType(e.target.value as QuestionType | '')}
-                >
-                  <option value="">All Types</option>
-                  <option value="mcq">MCQ</option>
-                  <option value="short">Short</option>
-                  <option value="long">Long</option>
-                  <option value="fillblank">Fill Blank</option>
-                </select>
-              </div>
-
-              <div className="question-bank-list">
-                {filteredQuestions.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-                    <p>No questions found</p>
-                  </div>
-                ) : (
-                  filteredQuestions.map(q => (
-                    <QuestionBankItem
-                      key={q.id}
-                      question={q}
-                      isSelected={false}
-                      onSelect={() => handleAddQuestion(q.id)}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowQuestionBank(false)}>
-                Close
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

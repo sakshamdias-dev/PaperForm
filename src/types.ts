@@ -1,4 +1,4 @@
-export type QuestionType = 'mcq' | 'short' | 'long' | 'fillblank';
+export type QuestionType = 'mcq' | 'subjective' | 'fillblank' | 'truefalse' | 'match';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type PaperSection = 'A' | 'B' | 'C' | 'D';
 
@@ -47,6 +47,7 @@ export interface Question {
   difficulty: Difficulty;
   explanation?: string;
   imageUrl?: string;
+  typeHeader?: string;
   createdAt: number;
   updatedAt: number;
 }

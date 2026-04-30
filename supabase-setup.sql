@@ -194,11 +194,12 @@ CREATE TABLE IF NOT EXISTS public.questions (
   course_id UUID,
   subject_id UUID,
   class_id UUID,
-  question_type VARCHAR(50) NOT NULL DEFAULT 'short', -- 'mcq', 'short', 'long', 'fillblank'
+  question_type VARCHAR(50) NOT NULL DEFAULT 'subjective', -- 'mcq', 'subjective', 'fillblank', 'truefalse', 'match'
   options JSONB DEFAULT '[]'::jsonb,
   difficulty VARCHAR(50) DEFAULT 'medium',
   explanation TEXT,
   image_url TEXT,
+  type_header TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_questions_teacher FOREIGN KEY (teacher_id)
@@ -434,3 +435,9 @@ $$ LANGUAGE plpgsql;
 -- ============================================================================
 
 -- ALTER TABLE public.qp_metadata ADD COLUMN IF NOT EXISTS duration INTEGER;
+
+-- ============================================================================
+-- 14. MIGRATION: Add type_header column to questions (run this if table already exists)
+-- ============================================================================
+
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS type_header TEXT;

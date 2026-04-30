@@ -50,6 +50,7 @@ interface AppState {
   updatePaperQuestion: (id: string, updates: Partial<PaperQuestion>) => Promise<void>;
   removeQuestionFromPaper: (paperId: string, questionId: string) => Promise<void>;
   reorderPaperQuestions: (paperId: string, paperQuestionsList: PaperQuestion[]) => Promise<void>;
+  createAndAddQuestion: (paperId: string, content: string, questionType: QuestionType, options?: string[], section?: PaperSection, marks?: number, courseId?: string, subjectId?: string, classId?: string, difficulty?: Difficulty, explanation?: string, imageUrl?: string, typeHeader?: string) => Promise<string>;
 }
 
 const generateId = () => crypto.randomUUID();
@@ -204,6 +205,7 @@ export const useStore = create<AppState>()((set, get) => ({
             difficulty: q.difficulty,
             explanation: q.explanation,
             imageUrl: q.image_url,
+            typeHeader: q.type_header,
             createdAt: new Date(q.created_at).getTime(),
             updatedAt: new Date(q.updated_at).getTime(),
           }));
@@ -524,8 +526,10 @@ export const useStore = create<AppState>()((set, get) => ({
         if (updates.difficulty !== undefined) supabaseUpdates.difficulty = updates.difficulty;
         if (updates.explanation !== undefined) supabaseUpdates.explanation = updates.explanation;
         if (updates.imageUrl !== undefined) supabaseUpdates.image_url = updates.imageUrl;
+        if (updates.typeHeader !== undefined) supabaseUpdates.type_header = updates.typeHeader;
 
-        await supabase.from('questions').update(supabaseUpdates).eq('id', id);
+        const { error } = await supabase.from('questions').update(supabaseUpdates).eq('id', id);
+        if (error) console.error('Failed to update question:', error.message);
       },
 
       deleteQuestion: async (id: string) => {
@@ -619,6 +623,88 @@ export const useStore = create<AppState>()((set, get) => ({
         }));
 
         await supabase.from('paper_questions').upsert(updates);
+      },
+
+      createAndAddQuestion: async (paperId: string, content: string, questionType: QuestionType, options?: string[], section?: PaperSection, marks?: number, courseId?: string, subjectId?: string, classId?: string, difficulty?: Difficulty, explanation?: string, imageUrl?: string, typeHeader?: string) => {
+        const { user, questionPapers } = get();
+        if (!user?.id) return '';
+
+        const questionId = generateId();
+        const pqId = generateId();
+
+        const paper = questionPapers.find(qp => qp.id === paperId);
+        const paperQuestionsList = get().paperQuestions.get(paperId) || [];
+        const orderIndex = paperQuestionsList.length;
+
+        const newQuestion: Question = {
+          id: questionId,
+          teacherId: user.id,
+          content,
+          courseId,
+          subjectId: subjectId || paper?.subjectId,
+          classId: classId || paper?.classId,
+          questionType,
+          options: options || [],
+          difficulty: difficulty || 'medium',
+          explanation,
+          imageUrl,
+          typeHeader,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const newPQ: PaperQuestion = {
+          id: pqId,
+          paperId,
+          questionId,
+          section: section || 'A',
+          marks: marks || 1,
+          orderIndex,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        set((state) => ({
+          questions: [newQuestion, ...state.questions],
+          paperQuestions: new Map(state.paperQuestions).set(paperId, [...paperQuestionsList, newPQ]),
+        }));
+
+        const { error: qError } = await supabase.from('questions').insert({
+          id: questionId,
+          teacher_id: user.id,
+          content,
+          course_id: courseId,
+          subject_id: subjectId || paper?.subjectId,
+          class_id: classId || paper?.classId,
+          question_type: questionType,
+          options: options || [],
+          difficulty: difficulty || 'medium',
+          explanation,
+          image_url: imageUrl,
+          type_header: typeHeader,
+        });
+        if (qError) {
+          console.error('Failed to insert question:', qError.message);
+          set((state) => ({
+            questions: state.questions.filter(q => q.id !== questionId),
+            paperQuestions: new Map(state.paperQuestions).set(paperId, paperQuestionsList),
+          }));
+          return '';
+        }
+
+        const { error: pqError } = await supabase.from('paper_questions').insert({
+          id: pqId,
+          paper_id: paperId,
+          question_id: questionId,
+          section: section || 'A',
+          marks: marks || 1,
+          order_index: orderIndex,
+        });
+        if (pqError) {
+          console.error('Failed to insert paper_question:', pqError.message);
+        }
+
+        return questionId;
       },
     }),
 );
