@@ -120,10 +120,10 @@ function SortableQuestion({ paperQuestion, question, isSelected, questionNumber,
         </button>
       </div>
 
-       {/* Clean HTML - this is exactly what prints */}
-       <div className="clean-question">
-         <span className="q-number">{questionNumber}.</span>
-         <span className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
+      {/* Clean HTML - this is exactly what prints */}
+      <div className="clean-question">
+        <span className="q-number">{questionNumber}.</span>
+        <span className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
         {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
           <div className={`q-options q-options-${mcqLayout}`}>
             {question.options.map((opt, i) => (
@@ -222,7 +222,7 @@ export default function Editor() {
   const modules = {
     toolbar: {
       container: [
-        ['bold', 'italic', 'underline', { 'script': 'sub'}, { 'script': 'super'}, 'clean', { 'list': 'ordered'}, { 'list': 'bullet' }, 'image', 'link', 'table']
+        ['bold', 'italic', 'underline', { 'script': 'sub' }, { 'script': 'super' }, 'clean', { 'list': 'ordered' }, { 'list': 'bullet' }, 'image', 'link', 'table']
       ],
       handlers: {
         table: insertTable
@@ -488,7 +488,7 @@ export default function Editor() {
     );
   }
 
-   return (
+  return (
     <div className="editor-layout">
       {/* Table Insertion Dialog */}
       {showTableDialog && (
@@ -534,13 +534,10 @@ export default function Editor() {
             <button onClick={() => navigate('/')} style={{ padding: 4 }}>
               <ArrowLeft size={20} style={{ color: 'white' }} />
             </button>
-            <h2 className="editor-sidebar-title" style={{ margin: 0 }}>{paper.title}</h2>
+            <h2 className="editor-sidebar-title" style={{ margin: 0, fontSize: 22 }}>{paper.title}</h2>
           </div>
           <p className="editor-sidebar-subtitle">
-            {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'}
-          {/* </p>
-          <p className="editor-sidebar-subtitle"> */}
-            {paper.qpCode} • {totalMarks} / {paper.maxMarks || totalMarks} marks{paper.duration ? ` • ${paper.duration} min` : ''}
+            {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'} • {totalMarks} / {paper.maxMarks || totalMarks} marks{paper.duration ? ` • ${paper.duration} min` : ''}
           </p>
         </div>
 
@@ -648,10 +645,10 @@ export default function Editor() {
                 bounds="parent"
                 className="no-print-handles"
               >
-                <img 
-                  src={paper.headerConfig.logoUrl} 
-                  alt="Logo" 
-                  style={{ width: '100%', height: 'auto', display: 'block' }} 
+                <img
+                  src={paper.headerConfig.logoUrl}
+                  alt="Logo"
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
                 />
               </Rnd>
             )}
@@ -754,16 +751,16 @@ export default function Editor() {
               <h3 className="block-palette-title" style={{ padding: 0, marginBottom: 12 }}>Header Customization</h3>
               <div className="property-field">
                 <label className="property-label editor-label">School/College Logo</label>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleLogoUpload} 
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
                   className="property-input"
                   style={{ fontSize: 12 }}
                 />
                 {paper.headerConfig?.logoUrl && (
-                  <button 
-                    className="btn btn-danger" 
+                  <button
+                    className="btn btn-danger"
                     onClick={() => handleUpdateHeaderConfig({ logoUrl: undefined })}
                     style={{ width: '100%', marginTop: 8, fontSize: 12, padding: '4px 8px' }}
                   >
