@@ -22,8 +22,8 @@ export default function Login() {
 
     try {
       if (isSignUp) {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
           password,
           options: {
             data: {
@@ -34,53 +34,20 @@ export default function Login() {
         });
 
         if (signUpError) throw signUpError;
-        
-        if (data.user) {
-          setUser({
-            id: data.user.id,
-            fullName: name.trim(),
-            schoolName: schoolName.trim(),
-            email: data.user.email || '',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          });
-          navigate('/', { replace: true });
-        }
+        // Navigation and state update will be handled by App.tsx's onAuthStateChange
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
 
         if (signInError) throw signInError;
-
-        if (data.user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('full_name, school_name')
-            .eq('id', data.user.id)
-            .maybeSingle();
-
-          const storedName = profileData?.full_name;
-          const nameFromEmail = email.split('@')[0] || '';
-          const displayName = (storedName && storedName.trim() !== '') ? storedName : nameFromEmail;
-
-          setUser({
-            id: data.user.id,
-            fullName: displayName,
-            schoolName: profileData?.school_name || '',
-            email: data.user.email || '',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          });
-          navigate('/', { replace: true });
-        }
+        // Navigation and state update will be handled by App.tsx's onAuthStateChange
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
       setError(errorMessage);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only stop loading if there's an error. On success, App.tsx will unmount this component.
     }
   };
 

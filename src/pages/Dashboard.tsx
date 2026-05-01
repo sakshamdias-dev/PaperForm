@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [subjectFilter, setSubjectFilter] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  
+
   // New Paper form state
   const [newTitle, setNewTitle] = useState('');
   const [newDate, setNewDate] = useState('');
@@ -23,12 +23,12 @@ export default function Dashboard() {
   const [newInstructions, setNewInstructions] = useState('');
   const [newDuration, setNewDuration] = useState(180);
   const [creating, setCreating] = useState(false);
-  
+
   // Settings form state
   const [settingsTab, setSettingsTab] = useState<'courses' | 'subjects' | 'classes'>('courses');
   const [newItemName, setNewItemName] = useState('');
   const [addingItem, setAddingItem] = useState(false);
-  
+
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,36 +47,56 @@ export default function Dashboard() {
   }, [questionPapers, search, courseFilter, subjectFilter]);
 
   const handleCreatePaper = async () => {
-    if (newTitle.trim()) {
+    if (
+      newTitle.trim() &&
+      newSubjectId &&
+      newClassId &&
+      newMaxMarks > 0 &&
+      newDate &&
+      newDuration > 0
+    ) {
       setCreating(true);
-      const id = await createQuestionPaper(
-        newTitle.trim(),
-        newDate || undefined,
-        newMaxMarks,
-        newCourseId || undefined,
-        newSubjectId || undefined,
-        newClassId || undefined,
-        newInstructions || undefined,
-        newDuration || undefined
-      );
-      setShowNewModal(false);
-      setNewTitle('');
-      setNewDate('');
-      setNewMaxMarks(100);
-      setNewCourseId('');
-      setNewSubjectId('');
-      setNewClassId('');
-      setNewInstructions('');
-      setNewDuration(180);
-      setCreating(false);
-      navigate(`/editor/${id}`);
+      try {
+        const id = await createQuestionPaper(
+          newTitle.trim(),
+          newDate || undefined,
+          newMaxMarks,
+          newCourseId || undefined,
+          newSubjectId || undefined,
+          newClassId || undefined,
+          newInstructions || undefined,
+          newDuration || undefined
+        );
+        
+        if (!id) {
+          alert('Failed to create paper. Please check your database connection and try again.');
+          setCreating(false);
+          return;
+        }
+
+        setShowNewModal(false);
+        setNewTitle('');
+        setNewDate('');
+        setNewMaxMarks(100);
+        setNewCourseId('');
+        setNewSubjectId('');
+        setNewClassId('');
+        setNewInstructions('');
+        setNewDuration(180);
+        navigate(`/editor/${id}`);
+      } catch (err) {
+        console.error('Create paper error:', err);
+        alert('Failed to create paper. Please try again.');
+      } finally {
+        setCreating(false);
+      }
     }
   };
 
   const handleAddItem = async () => {
     if (!newItemName.trim()) return;
     setAddingItem(true);
-    
+
     try {
       if (settingsTab === 'courses') {
         await createCourse(newItemName.trim());
@@ -138,7 +158,7 @@ export default function Dashboard() {
         </div>
         <nav className="sidebar-nav">
           <button className="new-paper-btn" onClick={() => setShowNewModal(true)} style={{ marginBottom: 16 }}>
-            <Plus size={20} />
+            <Plus size={20} style={{ marginLeft: -20 }} />
             <span>New Paper</span>
           </button>
           <div className="nav-item active">
@@ -268,7 +288,7 @@ export default function Dashboard() {
             </div>
             <div className="modal-content" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <div className="property-field">
-                <label className="property-label">Paper Title</label>
+                <label className="property-label">Paper Title *</label>
                 <input
                   type="text"
                   className="property-input"
@@ -279,7 +299,7 @@ export default function Dashboard() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="property-field">
-                  <label className="property-label">Course</label>
+                  <label className="property-label">Course (Optional)</label>
                   <select
                     className="property-input"
                     value={newCourseId}
@@ -292,7 +312,7 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div className="property-field">
-                  <label className="property-label">Subject</label>
+                  <label className="property-label">Subject *</label>
                   <select
                     className="property-input"
                     value={newSubjectId}
@@ -307,7 +327,7 @@ export default function Dashboard() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="property-field">
-                  <label className="property-label">Class</label>
+                  <label className="property-label">Class *</label>
                   <select
                     className="property-input"
                     value={newClassId}
@@ -320,7 +340,7 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div className="property-field">
-                  <label className="property-label">Max Marks</label>
+                  <label className="property-label">Max Marks *</label>
                   <input
                     type="number"
                     className="property-input"
@@ -332,7 +352,7 @@ export default function Dashboard() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="property-field">
-                  <label className="property-label">Date</label>
+                  <label className="property-label">Date *</label>
                   <input
                     type="date"
                     className="property-input"
@@ -341,7 +361,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <div className="property-field">
-                  <label className="property-label">Duration (minutes)</label>
+                  <label className="property-label">Duration (minutes) *</label>
                   <input
                     type="number"
                     className="property-input"
@@ -352,7 +372,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="property-field">
-                <label className="property-label">Instructions</label>
+                <label className="property-label">Instructions (Optional)</label>
                 <textarea
                   className="property-textarea"
                   placeholder="General instructions for the exam..."
@@ -366,7 +386,11 @@ export default function Dashboard() {
               <button className="btn btn-secondary" onClick={() => setShowNewModal(false)} disabled={creating}>
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={handleCreatePaper} disabled={creating}>
+              <button
+                className="btn btn-primary"
+                onClick={handleCreatePaper}
+                disabled={creating || !newTitle.trim() || !newSubjectId || !newClassId || !newDate}
+              >
                 {creating ? <Loader2 className="animate-spin" size={18} /> : 'Create Paper'}
               </button>
             </div>
@@ -387,21 +411,21 @@ export default function Dashboard() {
                   className={`btn ${settingsTab === 'courses' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setSettingsTab('courses')}
                 >
-                  <GraduationCap size={18} />
+                  <GraduationCap size={18} style={{ marginRight: 7, marginBottom: -4 }} />
                   Courses
                 </button>
                 <button
                   className={`btn ${settingsTab === 'subjects' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setSettingsTab('subjects')}
                 >
-                  <BookOpen size={18} />
+                  <BookOpen size={18} style={{ marginRight: 7, marginBottom: -4 }} />
                   Subjects
                 </button>
                 <button
                   className={`btn ${settingsTab === 'classes' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setSettingsTab('classes')}
                 >
-                  <Users size={18} />
+                  <Users size={18} style={{ marginRight: 7, marginBottom: -4 }} />
                   Classes
                 </button>
               </div>
@@ -425,18 +449,36 @@ export default function Dashboard() {
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {settingsTab === 'courses' && courses.map((c) => (
-                  <span key={c.id} className="paper-tag" style={{ cursor: 'default' }}>
+                  <span key={c.id} className="paper-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default' }}>
                     {c.name}
+                    <button
+                      onClick={() => useStore.getState().deleteCourse(c.id)}
+                      style={{ display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.7)', padding: 0 }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </span>
                 ))}
                 {settingsTab === 'subjects' && subjects.map((s) => (
-                  <span key={s.id} className="paper-tag" style={{ cursor: 'default' }}>
+                  <span key={s.id} className="paper-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default' }}>
                     {s.name}
+                    <button
+                      onClick={() => useStore.getState().deleteSubject(s.id)}
+                      style={{ display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.7)', padding: 0 }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </span>
                 ))}
                 {settingsTab === 'classes' && classes.map((c) => (
-                  <span key={c.id} className="paper-tag" style={{ cursor: 'default' }}>
+                  <span key={c.id} className="paper-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'default' }}>
                     {c.name}
+                    <button
+                      onClick={() => useStore.getState().deleteClass(c.id)}
+                      style={{ display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.7)', padding: 0 }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </span>
                 ))}
                 {settingsTab === 'courses' && courses.length === 0 && (

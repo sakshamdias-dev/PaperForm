@@ -52,6 +52,14 @@ export interface Question {
   updatedAt: number;
 }
 
+export interface HeaderConfig {
+  logoUrl?: string;
+  logoSize?: number;
+  logoPos?: { x: number; y: number };
+  barcodePos?: { x: number; y: number };
+  showBarcode?: boolean;
+}
+
 export interface QuestionPaper {
   id: string;
   qpCode: string;
@@ -66,6 +74,7 @@ export interface QuestionPaper {
   isPublished: boolean;
   totalMarks: number;
   duration?: number;
+  headerConfig?: HeaderConfig;
   createdAt: number;
   updatedAt: number;
 }

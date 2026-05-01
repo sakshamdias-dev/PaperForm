@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import { Rnd } from 'react-rnd';
 import {
   Plus,
   Trash2,
@@ -159,10 +160,13 @@ export default function Editor() {
     removeQuestionFromPaper,
     reorderPaperQuestions,
     updatePaperQuestion,
+    updateQuestionPaper,
     createAndAddQuestion,
     updateQuestion,
     deleteQuestion,
   } = useStore();
+
+  const user = useStore((s) => s.user);
 
   const paper = questionPapers.find(qp => qp.id === id);
   const [selectedPQId, setSelectedPQId] = useState<string | null>(null);
@@ -302,6 +306,23 @@ export default function Editor() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUpdateHeaderConfig = async (updates: Partial<any>) => {
+    if (!paper) return;
+    const newConfig = { ...(paper.headerConfig || {}), ...updates };
+    await updateQuestionPaper(paper.id, { headerConfig: newConfig });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleUpdateHeaderConfig({ logoUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -614,10 +635,42 @@ export default function Editor() {
       {/* CENTER - Clean HTML Paper (WYSIWYG) */}
       <div className="editor-canvas">
         <div className="paper-container" ref={paperRef} id="printable-paper">
-          <div className="paper-header">
-            <h1 className="paper-school-name">Question Paper</h1>
+          <div className="paper-header" style={{ position: 'relative', minHeight: 180 }}>
+            {/* Logo Rnd */}
+            {paper.headerConfig?.logoUrl && (
+              <Rnd
+                size={{ width: paper.headerConfig.logoSize || 80, height: 'auto' }}
+                position={paper.headerConfig.logoPos || { x: 20, y: 20 }}
+                onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ logoPos: { x: d.x, y: d.y } }); }}
+                onResizeStop={(_e, _dir, ref) => {
+                  void handleUpdateHeaderConfig({ logoSize: parseInt(ref.style.width) });
+                }}
+                bounds="parent"
+                className="no-print-handles"
+              >
+                <img 
+                  src={paper.headerConfig.logoUrl} 
+                  alt="Logo" 
+                  style={{ width: '100%', height: 'auto', display: 'block' }} 
+                />
+              </Rnd>
+            )}
+
+            {/* Barcode Rnd */}
+            <Rnd
+              position={paper.headerConfig?.barcodePos || { x: 550, y: 20 }}
+              onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ barcodePos: { x: d.x, y: d.y } }); }}
+              bounds="parent"
+              disableResizing
+              className="no-print-handles"
+            >
+              <div className="barcode-wrapper">
+                <div className="barcode-text">QP Code: {paper.qpCode}</div>
+              </div>
+            </Rnd>
+
+            <h1 className="paper-school-name">{user?.schoolName || 'School Name'}</h1>
             <h2 className="paper-exam-title">{paper.title}</h2>
-            {paper.qpCode && <p className="paper-info">{paper.qpCode}</p>}
             <div className="paper-info">
               <span>Course: {getCourse(paper.courseId)?.name || '-'}</span>
               <span>Subject: {getSubject(paper.subjectId)?.name || '-'}</span>
@@ -692,10 +745,37 @@ export default function Editor() {
       <div className="property-panel">
         <div className="property-panel-header">
           <h2 className="property-panel-title">
-            {draftType ? (editingQuestionId ? 'Edit Question' : 'Add Question') : selectedPQ ? 'Properties' : 'Properties'}
+            {draftType ? (editingQuestionId ? 'Edit Question' : 'Add Question') : selectedPQ ? 'Properties' : 'Page Settings'}
           </h2>
         </div>
         <div className="property-panel-content">
+          {!draftType && !selectedPQ && (
+            <div className="header-settings">
+              <h3 className="block-palette-title" style={{ padding: 0, marginBottom: 12 }}>Header Customization</h3>
+              <div className="property-field">
+                <label className="property-label editor-label">School/College Logo</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleLogoUpload} 
+                  className="property-input"
+                  style={{ fontSize: 12 }}
+                />
+                {paper.headerConfig?.logoUrl && (
+                  <button 
+                    className="btn btn-danger" 
+                    onClick={() => handleUpdateHeaderConfig({ logoUrl: undefined })}
+                    style={{ width: '100%', marginTop: 8, fontSize: 12, padding: '4px 8px' }}
+                  >
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>
+                Tip: You can drag and resize the logo and barcode directly on the paper preview.
+              </p>
+            </div>
+          )}
           {draftType && (
             <>
               <div className="property-field">

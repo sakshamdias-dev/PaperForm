@@ -92,7 +92,12 @@ export const useStore = create<AppState>()((set, get) => ({
           .eq('teacher_id', user.id)
           .order('name');
         
-        if (!error && data) {
+        if (error) {
+          console.error('Error fetching courses:', error);
+          return;
+        }
+        
+        if (data) {
           const courses: Course[] = data.map(c => ({
             id: c.id,
             teacherId: c.teacher_id,
@@ -159,7 +164,13 @@ export const useStore = create<AppState>()((set, get) => ({
           .eq('teacher_id', user.id)
           .order('updated_at', { ascending: false });
         
-        if (!error && data) {
+        if (error) {
+          console.error('Error fetching papers:', error);
+          set({ loading: false });
+          return;
+        }
+        
+        if (data) {
           const questionPapers: QuestionPaper[] = data.map(qp => ({
             id: qp.id,
             qpCode: qp.qp_code,
@@ -174,6 +185,7 @@ export const useStore = create<AppState>()((set, get) => ({
             isPublished: qp.is_published || false,
             totalMarks: qp.max_marks || 0,
             duration: qp.duration || 0,
+            headerConfig: qp.header_config || {},
             createdAt: new Date(qp.created_at).getTime(),
             updatedAt: new Date(qp.updated_at).getTime(),
           }));
@@ -388,6 +400,7 @@ export const useStore = create<AppState>()((set, get) => ({
           isPublished: false,
           totalMarks: 0,
           duration,
+          headerConfig: {},
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -395,7 +408,7 @@ export const useStore = create<AppState>()((set, get) => ({
         set((state) => ({ questionPapers: [newPaper, ...state.questionPapers], currentPaperId: id }));
 
         if (user?.id) {
-          await supabase.from('qp_metadata').insert({
+          const { error } = await supabase.from('qp_metadata').insert({
             id,
             teacher_id: user.id,
             title,
@@ -408,6 +421,15 @@ export const useStore = create<AppState>()((set, get) => ({
             is_published: false,
             duration,
           });
+
+          if (error) {
+            console.error('Failed to save paper to Supabase:', error.message, error.details);
+            // Rollback local state
+            set((state) => ({ 
+              questionPapers: state.questionPapers.filter(p => p.id !== id) 
+            }));
+            return '';
+          }
         }
 
         return id;
@@ -432,6 +454,7 @@ export const useStore = create<AppState>()((set, get) => ({
         if (updates.instructions !== undefined) supabaseUpdates.instructions = updates.instructions;
         if (updates.isPublished !== undefined) supabaseUpdates.is_published = updates.isPublished;
         if (updates.duration !== undefined) supabaseUpdates.duration = updates.duration;
+        if (updates.headerConfig !== undefined) supabaseUpdates.header_config = updates.headerConfig;
 
         await supabase.from('qp_metadata').update(supabaseUpdates).eq('id', id);
       },
@@ -489,7 +512,7 @@ export const useStore = create<AppState>()((set, get) => ({
         set((state) => ({ questions: [newQuestion, ...state.questions] }));
 
         if (user?.id) {
-          await supabase.from('questions').insert({
+          const { error } = await supabase.from('questions').insert({
             id,
             teacher_id: user.id,
             content,
@@ -502,6 +525,14 @@ export const useStore = create<AppState>()((set, get) => ({
             explanation,
             image_url: imageUrl,
           });
+
+          if (error) {
+            console.error('Failed to save question to Supabase:', error.message);
+            set((state) => ({ 
+              questions: state.questions.filter(q => q.id !== id) 
+            }));
+            return '';
+          }
         }
 
         return id;
@@ -569,7 +600,7 @@ export const useStore = create<AppState>()((set, get) => ({
           return { paperQuestions: newPaperQuestions };
         });
 
-        await supabase.from('paper_questions').insert({
+        const { error } = await supabase.from('paper_questions').insert({
           id,
           paper_id: paperId,
           question_id: questionId,
@@ -577,6 +608,16 @@ export const useStore = create<AppState>()((set, get) => ({
           marks,
           order_index: orderIndex,
         });
+
+        if (error) {
+          console.error('Failed to add question to paper in Supabase:', error.message);
+          set((state) => {
+            const newPaperQuestions = new Map(state.paperQuestions);
+            newPaperQuestions.set(paperId, paperQuestionsList);
+            return { paperQuestions: newPaperQuestions };
+          });
+          return '';
+        }
 
         return id;
       },
