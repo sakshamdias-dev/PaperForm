@@ -511,14 +511,14 @@ export default function Editor() {
         <div className="editor-sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <button onClick={() => navigate('/')} style={{ padding: 4 }}>
-              <ArrowLeft size={20} />
+              <ArrowLeft size={20} style={{ color: 'white' }} />
             </button>
             <h2 className="editor-sidebar-title" style={{ margin: 0 }}>{paper.title}</h2>
           </div>
           <p className="editor-sidebar-subtitle">
             {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'}
-          </p>
-          <p className="editor-sidebar-subtitle">
+          {/* </p>
+          <p className="editor-sidebar-subtitle"> */}
             {paper.qpCode} • {totalMarks} / {paper.maxMarks || totalMarks} marks{paper.duration ? ` • ${paper.duration} min` : ''}
           </p>
         </div>
@@ -541,6 +541,8 @@ export default function Editor() {
             ))}
           </div>
         </div>
+
+        {/* <div className="suggested-section-divider" /> */}
 
         <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column' }}>
           <button

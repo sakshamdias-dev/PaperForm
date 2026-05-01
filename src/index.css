@@ -637,7 +637,7 @@ input::placeholder, textarea::placeholder {
   background: white;
   min-height: 1000px;
   box-shadow: var(--shadow-lg);
-  padding: 44px 52px;
+  padding: 30px 52px;
   position: relative;
   border-radius: 4px;
 }
@@ -645,13 +645,13 @@ input::placeholder, textarea::placeholder {
 .paper-header {
   text-align: center;
   margin-bottom: 36px;
-  padding-bottom: 20px;
+  /* padding-bottom: 5px; */
   border-bottom: 2px solid var(--text-primary);
 }
 
 .paper-school-name {
   font-family: var(--font-serif);
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   margin-bottom: 6px;
   letter-spacing: 0.5px;
@@ -659,7 +659,7 @@ input::placeholder, textarea::placeholder {
 
 .paper-exam-title {
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   margin-bottom: 4px;
 }
@@ -677,11 +677,11 @@ input::placeholder, textarea::placeholder {
 .paper-instructions {
   margin-top: 12px;
   padding: 10px 16px;
-  background: #FFF8E6;
-  border: 1px solid #F5D89A;
-  border-radius: var(--radius-sm);
+  /* background: #FFF8E6; */
+  /* border: 1px solid #F5D89A; */
+  /* border-radius: var(--radius-sm); */
   font-size: 12px;
-  color: #8B6914;
+  /* color: #8B6914; */
   text-align: left;
 }
 
@@ -2146,7 +2146,7 @@ input::placeholder, textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 12px 10px;
+  padding: 2px 12px 10px;
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
   text-transform: uppercase;
@@ -2187,9 +2187,9 @@ input::placeholder, textarea::placeholder {
 
 .question-bank-item {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 10px 12px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
   background: var(--primary-dark);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-md);
@@ -2200,6 +2200,13 @@ input::placeholder, textarea::placeholder {
 
 .question-bank-item:hover {
   border-color: rgba(255, 107, 0, 0.4);
+}
+
+/* Divider between sections */
+.suggested-section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 8px 12px;
 }
 
 .question-bank-item-content {
