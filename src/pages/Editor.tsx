@@ -17,6 +17,8 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import {
   Plus,
   Trash2,
@@ -31,6 +33,8 @@ import {
   NotebookPen,
   Search,
   Pencil,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useStore } from '../store';
 import type { Question, PaperQuestion, QuestionType, PaperSection, Difficulty } from '../types';
@@ -45,6 +49,12 @@ const BLOCK_TYPES: { type: QuestionType; label: string; icon: typeof AlignLeft; 
 
 function getTypeHeader(type: QuestionType): string {
   return BLOCK_TYPES.find(b => b.type === type)?.header || type;
+}
+
+function stripHtml(html: string): string {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
 }
 
 interface SortableQuestionProps {
@@ -109,10 +119,10 @@ function SortableQuestion({ paperQuestion, question, isSelected, questionNumber,
         </button>
       </div>
 
-      {/* Clean HTML - this is exactly what prints */}
-      <div className="clean-question">
-        <span className="q-number">{questionNumber}.</span>
-        <span className="q-text">{question.content}</span>
+       {/* Clean HTML - this is exactly what prints */}
+       <div className="clean-question">
+         <span className="q-number">{questionNumber}.</span>
+         <span className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
         {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
           <div className={`q-options q-options-${mcqLayout}`}>
             {question.options.map((opt, i) => (
@@ -126,9 +136,9 @@ function SortableQuestion({ paperQuestion, question, isSelected, questionNumber,
             <span className="q-option">(b) False</span>
           </div>
         )}
-        {(question.questionType === 'subjective' || question.questionType === 'fillblank') && (
+        {/* {(question.questionType === 'subjective' || question.questionType === 'fillblank') && (
           <div className="q-answer-space" />
-        )}
+        )} */}
       </div>
     </div>
   );
@@ -151,6 +161,7 @@ export default function Editor() {
     updatePaperQuestion,
     createAndAddQuestion,
     updateQuestion,
+    deleteQuestion,
   } = useStore();
 
   const paper = questionPapers.find(qp => qp.id === id);
@@ -158,6 +169,7 @@ export default function Editor() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [suggestedSearch, setSuggestedSearch] = useState('');
+  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [draftType, setDraftType] = useState<QuestionType | null>(null);
@@ -168,6 +180,51 @@ export default function Editor() {
   const [draftDifficulty, setDraftDifficulty] = useState<Difficulty>('medium');
   const [draftTypeHeader, setDraftTypeHeader] = useState('');
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const quillRef = useRef<ReactQuill>(null);
+  const [showTableDialog, setShowTableDialog] = useState(false);
+  const [tableRows, setTableRows] = useState(2);
+  const [tableCols, setTableCols] = useState(2);
+
+  const insertTable = () => {
+    setShowTableDialog(true);
+  };
+
+  const confirmTableInsert = () => {
+    if (quillRef.current && tableRows > 0 && tableCols > 0) {
+      let tableHtml = '<table>';
+      // Add header row
+      tableHtml += '<thead><tr>';
+      for (let i = 0; i < tableCols; i++) {
+        tableHtml += `<th>Header ${i + 1}</th>`;
+      }
+      tableHtml += '</tr></thead><tbody>';
+      // Add data rows
+      for (let r = 0; r < tableRows; r++) {
+        tableHtml += '<tr>';
+        for (let c = 0; c < tableCols; c++) {
+          tableHtml += `<td>Cell ${r * tableCols + c + 1}</td>`;
+        }
+        tableHtml += '</tr>';
+      }
+      tableHtml += '</tbody></table><p><br></p>';
+
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      quill.clipboard.dangerouslyPasteHTML(range?.index || 0, tableHtml);
+    }
+    setShowTableDialog(false);
+  };
+
+  const modules = {
+    toolbar: {
+      container: [
+        ['bold', 'italic', 'underline', { 'script': 'sub'}, { 'script': 'super'}, 'clean', { 'list': 'ordered'}, { 'list': 'bullet' }, 'image', 'link', 'table']
+      ],
+      handlers: {
+        table: insertTable
+      }
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -330,19 +387,31 @@ export default function Editor() {
   }, [paperQuestionsList]);
 
   const sequentialRenderedList = useMemo(() => {
-    const items: ({ type: 'header'; header: string } | { type: 'question'; pq: PaperQuestion; q: Question })[] = [];
+    const items: (
+      | { type: 'section'; section: PaperSection }
+      | { type: 'header'; header: string }
+      | { type: 'question'; pq: PaperQuestion; q: Question; questionNumber: number }
+    )[] = [];
     let lastHeader = '';
+    let questionCounter = 0;
+    let lastSection: PaperSection | null = null;
     paperQuestionsList.forEach((pq) => {
       const q = getQuestion(pq.questionId);
       if (!q) return;
+      if (pq.section !== lastSection) {
+        items.push({ type: 'section' as const, section: pq.section });
+        lastSection = pq.section;
+        questionCounter = 0;
+        lastHeader = '';
+      }
       const currentHeader = q.typeHeader || '';
       if (currentHeader && currentHeader !== lastHeader) {
         items.push({ type: 'header' as const, header: currentHeader });
         lastHeader = currentHeader;
-      } else if (!currentHeader && lastHeader) {
-        lastHeader = '';
+        questionCounter = 0;
       }
-      items.push({ type: 'question' as const, pq, q });
+      questionCounter++;
+      items.push({ type: 'question' as const, pq, q, questionNumber: questionCounter });
     });
     return items;
   }, [paperQuestionsList]);
@@ -372,12 +441,17 @@ export default function Editor() {
         q.difficulty,
         undefined,
         undefined,
-        q.typeHeader,
+        q.typeHeader || getTypeHeader(q.questionType),
       );
       showToastMessage('Question added from bank!');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteBankQuestion = async (questionId: string) => {
+    await deleteQuestion(questionId);
+    showToastMessage('Question deleted from bank');
   };
 
   const exportPDF = () => {
@@ -393,8 +467,45 @@ export default function Editor() {
     );
   }
 
-  return (
+   return (
     <div className="editor-layout">
+      {/* Table Insertion Dialog */}
+      {showTableDialog && (
+        <div className="modal-overlay" onClick={() => setShowTableDialog(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Insert Table</h2>
+            </div>
+            <div className="modal-content">
+              <div className="property-field">
+                <label className="property-label">Rows</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={tableRows}
+                  onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
+                  min={1}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Columns</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={tableCols}
+                  onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
+                  min={1}
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowTableDialog(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={confirmTableInsert}>Insert Table</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LEFT SIDEBAR */}
       <div className="editor-sidebar">
         <div className="editor-sidebar-header">
@@ -431,42 +542,69 @@ export default function Editor() {
           </div>
         </div>
 
-        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <h3 className="block-palette-title">Suggested Questions</h3>
-          <div style={{ padding: '0 12px 8px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
-              <input
-                type="text"
-                placeholder="Search your bank..."
-                value={suggestedSearch}
-                onChange={(e) => setSuggestedSearch(e.target.value)}
-                style={{ width: '100%', paddingLeft: 28, fontSize: 12 }}
-                className="property-input"
-              />
-            </div>
-          </div>
-          <div className="question-bank-list" style={{ flex: 1 }}>
-            {suggestedQuestions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                <p>No questions in your bank yet</p>
-                <p>Create one using the blocks above</p>
+        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column' }}>
+          <button
+            className="suggested-toggle"
+            onClick={() => setSuggestionsOpen(!suggestionsOpen)}
+          >
+            <span className="suggested-toggle-label">Suggested Questions</span>
+            {suggestionsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          <div className={`suggested-content${suggestionsOpen ? ' expanded' : ''}`}>
+            <div style={{ padding: '0 12px 8px' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                <input
+                  type="text"
+                  placeholder="Search your bank..."
+                  value={suggestedSearch}
+                  onChange={(e) => setSuggestedSearch(e.target.value)}
+                  style={{ width: '100%', paddingLeft: 28, fontSize: 12 }}
+                  className="property-input"
+                />
               </div>
-            ) : (
-              suggestedQuestions.map(q => (
-                <div
-                  key={q.id}
-                  className="question-bank-item"
-                  onClick={() => handleAddSuggested(q.id)}
-                >
-                  <div className="question-bank-item-content">
-                    <span className="question-type-badge">{q.questionType}</span>
-                    <p>{q.content.slice(0, 80)}{q.content.length > 80 ? '...' : ''}</p>
-                  </div>
-                  <Plus size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            </div>
+            <div className="question-bank-list">
+              {suggestedQuestions.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                  <p>No questions in your bank yet</p>
+                  <p>Create one using the blocks above</p>
                 </div>
-              ))
-            )}
+              ) : (
+                suggestedQuestions.map(q => (
+                  <div
+                    key={q.id}
+                    className="question-bank-item"
+                  >
+                    <div
+                      className="question-bank-item-content"
+                      onClick={() => handleAddSuggested(q.id)}
+                    >
+                      <div className="question-bank-item-top">
+                        <span className="question-type-badge">{q.questionType}</span>
+                        <div className="bank-action-btns">
+                          <button
+                            className="bank-add-btn"
+                            onClick={(e) => { e.stopPropagation(); handleAddSuggested(q.id); }}
+                            title="Add to paper"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          <button
+                            className="bank-delete-btn"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteBankQuestion(q.id); }}
+                            title="Delete from bank"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      <p>{stripHtml(q.content).slice(0, 80)}{stripHtml(q.content).length > 80 ? '...' : ''}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -513,6 +651,13 @@ export default function Editor() {
                   strategy={verticalListSortingStrategy}
                 >
                   {sequentialRenderedList.map((item) => {
+                    if (item.type === 'section') {
+                      return (
+                        <div key={`section-${item.section}`} className="section-divider">
+                          <span>Section {item.section}</span>
+                        </div>
+                      );
+                    }
                     if (item.type === 'header') {
                       return (
                         <div key={item.header} className="type-header">
@@ -520,7 +665,7 @@ export default function Editor() {
                         </div>
                       );
                     }
-                    const globalIndex = paperQuestionsList.findIndex(p => p.id === item.pq.id) + 1;
+                    const globalIndex = item.questionNumber;
                     return (
                       <SortableQuestion
                         key={item.pq.id}
@@ -557,13 +702,17 @@ export default function Editor() {
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Question Content</label>
-                <textarea
-                  className="property-textarea"
-                  placeholder="Enter your question..."
-                  value={draftContent}
-                  onChange={(e) => setDraftContent(e.target.value)}
-                  rows={draftType === 'subjective' ? 4 : 3}
-                />
+                <div className="rich-editor-wrapper">
+                  <ReactQuill
+                    ref={quillRef}
+                    theme="snow"
+                    value={draftContent}
+                    onChange={(content) => setDraftContent(content || '')}
+                    placeholder="Enter your question..."
+                    modules={modules}
+                    style={{ background: 'white', borderRadius: 'var(--radius-md)' }}
+                  />
+                </div>
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Section Header Label</label>
@@ -683,8 +832,18 @@ export default function Editor() {
           {!draftType && selectedPQ && selectedQuestion && (
             <>
               <div className="property-field">
-                <label className="property-label editor-label">Question Type</label>
-                <div className="question-type-badge">{selectedQuestion.questionType}</div>
+                <label className="property-label editor-label">Question Content</label>
+                <div className="rich-editor-wrapper">
+                  <ReactQuill
+                    ref={quillRef}
+                    theme="snow"
+                    value={draftContent}
+                    onChange={(content) => setDraftContent(content || '')}
+                    placeholder="Enter your question..."
+                    modules={modules}
+                    style={{ background: 'white', borderRadius: 'var(--radius-md)' }}
+                  />
+                </div>
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Section</label>
@@ -711,7 +870,7 @@ export default function Editor() {
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Question Content</label>
-                <div className="question-content-preview">{selectedQuestion.content}</div>
+                <div className="question-content-preview" dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
               </div>
               <button
                 className="btn btn-primary"

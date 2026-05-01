@@ -1546,37 +1546,7 @@ input::placeholder, textarea::placeholder {
 }
 
 /* Question Bank */
-.question-bank-item {
-  padding: 12px;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.question-bank-item:hover {
-  border-color: var(--accent);
-}
-
-.question-bank-item.selected {
-  border-color: var(--accent);
-  background: rgba(245, 166, 35, 0.1);
-}
-
-.question-bank-item-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.question-bank-item-content p {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-primary);
-}
-
+/* Question Bank (legacy, overridden by new suggested styles below) */
 .question-type-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -1591,11 +1561,6 @@ input::placeholder, textarea::placeholder {
 .question-type-badge.small {
   padding: 1px 6px;
   font-size: 10px;
-}
-
-.question-bank-list {
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 /* Paper Questions List */
@@ -1627,7 +1592,7 @@ input::placeholder, textarea::placeholder {
 .rendered-question-item {
   position: relative;
   margin-bottom: 16px;
-  padding: 12px 16px 12px 2px;
+  /* padding: 12px 16px 12px 2px; */
   border-radius: var(--radius-md);
   transition: var(--transition);
   cursor: pointer;
@@ -1954,6 +1919,130 @@ input::placeholder, textarea::placeholder {
   font-size: 12px;
 }
 
+/* Rich Text Editor */
+.rich-editor-wrapper {
+  margin-bottom: 12px;
+}
+
+.rich-editor-wrapper .ql-toolbar {
+  background: var(--primary-dark) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  border-bottom: none !important;
+}
+
+.rich-editor-wrapper .ql-toolbar .ql-stroke {
+  stroke: rgba(255,255,255,0.7) !important;
+}
+
+.rich-editor-wrapper .ql-toolbar .ql-fill {
+  fill: rgba(255,255,255,0.7) !important;
+}
+
+.rich-editor-wrapper .ql-toolbar button:hover .ql-stroke,
+.rich-editor-wrapper .ql-toolbar button.ql-active .ql-stroke {
+  stroke: var(--accent) !important;
+}
+
+.rich-editor-wrapper .ql-toolbar button:hover .ql-fill,
+.rich-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
+  fill: var(--accent) !important;
+}
+
+.rich-editor-wrapper .ql-container {
+  background: white !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+}
+
+.rich-editor-wrapper .ql-editor {
+  min-height: 120px !important;
+  padding: 12px 14px !important;
+}
+
+.rich-editor-wrapper .ql-editor.ql-blank::before {
+  color: rgba(255,255,255,0.4) !important;
+  font-style: normal !important;
+}
+
+/* Table button icon */
+.rich-editor-wrapper .ql-table::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 18px !important;
+  height: 18px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cpath fill='white' d='M3 3h12v12H3V3zm0 2v3h3V5H3zm5 0v3h3V5H8zm5 0v3h3V5h-3zM8 10v3h3v-3H8zm-5 0v3h3v-3H3zm10 3v-3h3v3h-3z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+}
+
+/* Question Content Preview - render HTML */
+.question-content-preview {
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.question-content-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+.question-content-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.question-content-preview table td,
+.question-content-preview table th {
+  border: 1px solid var(--border);
+  padding: 6px;
+}
+
+/* Question text with HTML */
+.clean-question .q-text p {
+  margin: 0;
+  display: inline;
+}
+
+.clean-question .q-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+.clean-question .q-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.clean-question .q-text table td,
+.clean-question .q-text table th {
+  border: 1px solid #333;
+  padding: 6px;
+}
+
+@media print {
+  .rich-editor-wrapper,
+  .ql-toolbar,
+  .ql-container {
+    display: none !important;
+  }
+  
+  .clean-question .q-text {
+    font-size: 13px !important;
+  }
+}
+
 /* Print Styles - Only the clean paper HTML prints */
 @media print {
   body {
@@ -2050,4 +2139,142 @@ input::placeholder, textarea::placeholder {
   .paper-info {
     font-size: 10px !important;
   }
+}
+
+/* Suggested Questions Dropdown */
+.suggested-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 12px 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.suggested-toggle-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.suggested-toggle:hover .suggested-toggle-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.suggested-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 300ms ease;
+}
+
+.suggested-content.expanded {
+  max-height: 800px;
+}
+
+.question-bank-list {
+  padding: 0 12px;
+  overflow-y: auto;
+}
+
+.question-bank-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--primary-dark);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  transition: var(--transition);
+  position: relative;
+}
+
+.question-bank-item:hover {
+  border-color: rgba(255, 107, 0, 0.4);
+}
+
+.question-bank-item-content {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.question-bank-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.bank-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.question-bank-item-content p {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bank-add-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 107, 0, 0.15);
+  color: var(--accent);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.bank-add-btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.bank-delete-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.bank-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
+}
+
+.question-bank-item .question-type-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+  padding: 1px 6px;
 }

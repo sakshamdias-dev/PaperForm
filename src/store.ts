@@ -533,9 +533,16 @@ export const useStore = create<AppState>()((set, get) => ({
       },
 
       deleteQuestion: async (id: string) => {
-        set((state) => ({
-          questions: state.questions.filter(q => q.id !== id),
-        }));
+        set((state) => {
+          const newPaperQuestions = new Map(state.paperQuestions);
+          for (const [paperId, pqs] of newPaperQuestions) {
+            newPaperQuestions.set(paperId, pqs.filter(pq => pq.questionId !== id));
+          }
+          return {
+            questions: state.questions.filter(q => q.id !== id),
+            paperQuestions: newPaperQuestions,
+          };
+        });
 
         await supabase.from('questions').delete().eq('id', id);
       },
