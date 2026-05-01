@@ -36,6 +36,8 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
+  Image as ImageIcon,
+  Table2,
 } from 'lucide-react';
 import { useStore } from '../store';
 import type { Question, PaperQuestion, QuestionType, PaperSection, Difficulty } from '../types';
@@ -45,7 +47,6 @@ const BLOCK_TYPES: { type: QuestionType; label: string; icon: typeof AlignLeft; 
   { type: 'subjective', label: 'Subjective Question', icon: AlignLeft, description: 'Answer the following', header: 'Answer the following:' },
   { type: 'fillblank', label: 'Fill in the Blank', icon: NotebookPen, description: 'Complete the sentence', header: 'Fill in the blanks:' },
   { type: 'truefalse', label: 'True / False', icon: CircleCheck, description: 'Binary choice question', header: 'True or False:' },
-  { type: 'match', label: 'Match the Following', icon: CheckSquare, description: 'Match items in columns', header: 'Match the following:' },
 ];
 
 function getTypeHeader(type: QuestionType): string {
@@ -66,6 +67,8 @@ interface SortableQuestionProps {
   onSelect: () => void;
   onRemove: () => void;
   onEdit: () => void;
+  showSectionHeader?: string;
+  showTypeHeader?: string;
 }
 
 function getMaxWordsInOptions(options: string[]): number {
@@ -80,7 +83,17 @@ function getMcqLayout(options: string[]): string {
   return 'horizontal';
 }
 
-function SortableQuestion({ paperQuestion, question, isSelected, questionNumber, onSelect, onRemove, onEdit }: SortableQuestionProps) {
+function SortableQuestion({ 
+  paperQuestion, 
+  question, 
+  isSelected, 
+  questionNumber, 
+  onSelect, 
+  onRemove, 
+  onEdit,
+  showSectionHeader,
+  showTypeHeader
+}: SortableQuestionProps) {
   const {
     attributes,
     listeners,
@@ -122,24 +135,35 @@ function SortableQuestion({ paperQuestion, question, isSelected, questionNumber,
 
       {/* Clean HTML - this is exactly what prints */}
       <div className="clean-question">
-        <span className="q-number">{questionNumber}.</span>
-        <span className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
-        {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
-          <div className={`q-options q-options-${mcqLayout}`}>
-            {question.options.map((opt, i) => (
-              <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
-            ))}
+        {showSectionHeader && (
+          <div className="section-divider">
+            <span>Section {showSectionHeader}</span>
           </div>
         )}
-        {question.questionType === 'truefalse' && (
-          <div className="q-options q-options-horizontal">
-            <span className="q-option">(a) True</span>
-            <span className="q-option">(b) False</span>
+        {showTypeHeader && (
+          <div className="type-header">
+            <span>{showTypeHeader}</span>
           </div>
         )}
-        {/* {(question.questionType === 'subjective' || question.questionType === 'fillblank') && (
-          <div className="q-answer-space" />
-        )} */}
+        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+          <span className="q-number">{questionNumber}.</span>
+          <div style={{ flex: 1 }}>
+            <span className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
+            {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
+              <div className={`q-options q-options-${mcqLayout}`}>
+                {question.options.map((opt, i) => (
+                  <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
+                ))}
+              </div>
+            )}
+            {question.questionType === 'truefalse' && (
+              <div className="q-options q-options-horizontal">
+                <span className="q-option">(a) True</span>
+                <span className="q-option">(b) False</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -219,11 +243,38 @@ export default function Editor() {
     setShowTableDialog(false);
   };
 
+  const CustomToolbar = () => (
+    <div id="toolbar">
+      <span className="ql-formats">
+        <button className="ql-bold" />
+        <button className="ql-italic" />
+        <button className="ql-underline" />
+        <button className="ql-strike" />
+      </span>
+      <span className="ql-formats">
+        <button className="ql-list" value="ordered" />
+        <button className="ql-list" value="bullet" />
+      </span>
+      <span className="ql-formats">
+        <button className="ql-script" value="sub" />
+        <button className="ql-script" value="super" />
+      </span>
+      <span className="ql-formats">
+        <select className="ql-align" />
+        <button className="ql-image">
+          <ImageIcon size={16} />
+        </button>
+        <button className="ql-table">
+          <Table2 size={16} />
+        </button>
+        <button className="ql-clean" />
+      </span>
+    </div>
+  );
+
   const modules = {
     toolbar: {
-      container: [
-        ['bold', 'italic', 'underline', { 'script': 'sub' }, { 'script': 'super' }, 'clean', { 'list': 'ordered' }, { 'list': 'bullet' }, 'image', 'link', 'table']
-      ],
+      container: "#toolbar",
       handlers: {
         table: insertTable
       }
@@ -560,71 +611,54 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* <div className="suggested-section-divider" /> */}
-
-        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column' }}>
-          <button
-            className="suggested-toggle"
-            onClick={() => setSuggestionsOpen(!suggestionsOpen)}
-          >
-            <span className="suggested-toggle-label">Suggested Questions</span>
-            {suggestionsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          <div className={`suggested-content${suggestionsOpen ? ' expanded' : ''}`}>
-            <div style={{ padding: '0 12px 8px' }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
-                <input
-                  type="text"
-                  placeholder="Search your bank..."
-                  value={suggestedSearch}
-                  onChange={(e) => setSuggestedSearch(e.target.value)}
-                  style={{ width: '100%', paddingLeft: 28, fontSize: 12 }}
-                  className="property-input"
-                />
+        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <h3 className="block-palette-title">Question Bank</h3>
+          <div style={{ padding: '0 12px 8px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              <input
+                type="text"
+                placeholder="Search your bank..."
+                value={suggestedSearch}
+                onChange={(e) => setSuggestedSearch(e.target.value)}
+                style={{ width: '100%', paddingLeft: 28, fontSize: 12 }}
+                className="property-input"
+              />
+            </div>
+          </div>
+          <div className="block-items" style={{ flex: 1, overflowY: 'auto' }}>
+            {suggestedQuestions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                <p>No questions found</p>
               </div>
-            </div>
-            <div className="question-bank-list">
-              {suggestedQuestions.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                  <p>No questions in your bank yet</p>
-                  <p>Create one using the blocks above</p>
-                </div>
-              ) : (
-                suggestedQuestions.map(q => (
-                  <div
-                    key={q.id}
-                    className="question-bank-item"
-                  >
-                    <div
-                      className="question-bank-item-content"
-                      onClick={() => handleAddSuggested(q.id)}
-                    >
-                      <div className="question-bank-item-top">
-                        <span className="question-type-badge">{q.questionType}</span>
-                        <div className="bank-action-btns">
-                          <button
-                            className="bank-add-btn"
-                            onClick={(e) => { e.stopPropagation(); handleAddSuggested(q.id); }}
-                            title="Add to paper"
-                          >
-                            <Plus size={14} />
-                          </button>
-                          <button
-                            className="bank-delete-btn"
-                            onClick={(e) => { e.stopPropagation(); handleDeleteBankQuestion(q.id); }}
-                            title="Delete from bank"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </div>
-                      <p>{stripHtml(q.content).slice(0, 80)}{stripHtml(q.content).length > 80 ? '...' : ''}</p>
-                    </div>
+            ) : (
+              suggestedQuestions.map(q => (
+                <button
+                  key={q.id}
+                  className="block-item"
+                  onClick={() => handleAddSuggested(q.id)}
+                  style={{ position: 'relative' }}
+                >
+                  <div className="block-item-icon">
+                    <Plus size={14} />
                   </div>
-                ))
-              )}
-            </div>
+                  <div className="block-item-info">
+                    <span className="block-item-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {BLOCK_TYPES.find(b => b.type === q.questionType)?.label || q.questionType}
+                      <Trash2
+                        size={12}
+                        className="bank-delete-hover"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteBankQuestion(q.id); }}
+                        style={{ opacity: 0.5 }}
+                      />
+                    </span>
+                    <span className="block-item-desc" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {stripHtml(q.content)}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -702,31 +736,49 @@ export default function Editor() {
                   items={paperQuestionsList.map(pq => pq.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {sequentialRenderedList.map((item) => {
-                    if (item.type === 'section') {
-                      return (
-                        <div key={`section-${item.section}`} className="section-divider">
-                          <span>Section {item.section}</span>
-                        </div>
-                      );
+                  {paperQuestionsList.map((pq, index) => {
+                    const q = getQuestion(pq.questionId);
+                    if (!q) return null;
+
+                    // Calculate if we should show headers
+                    let showSectionHeader: string | undefined;
+                    let showTypeHeader: string | undefined;
+
+                    const prevPQ = index > 0 ? paperQuestionsList[index - 1] : null;
+                    const prevQ = prevPQ ? getQuestion(prevPQ.questionId) : null;
+
+                    if (!prevPQ || prevPQ.section !== pq.section) {
+                      showSectionHeader = pq.section;
                     }
-                    if (item.type === 'header') {
-                      return (
-                        <div key={item.header} className="type-header">
-                          <span>{item.header}</span>
-                        </div>
-                      );
+
+                    const currentHeader = q.typeHeader || '';
+                    const prevHeader = prevQ?.typeHeader || '';
+                    if (currentHeader && (currentHeader !== prevHeader || showSectionHeader)) {
+                      showTypeHeader = currentHeader;
                     }
-                    const globalIndex = item.questionNumber;
+
+                    // Calculate question number within section/type
+                    let questionNumber = 1;
+                    for (let i = index - 1; i >= 0; i--) {
+                      const itemPQ = paperQuestionsList[i];
+                      const itemQ = getQuestion(itemPQ.questionId);
+                      if (itemPQ.section !== pq.section || (itemQ?.typeHeader !== q.typeHeader)) {
+                        break;
+                      }
+                      questionNumber++;
+                    }
+
                     return (
                       <SortableQuestion
-                        key={item.pq.id}
-                        paperQuestion={item.pq}
-                        question={item.q}
-                        isSelected={selectedPQId === item.pq.id}
-                        questionNumber={globalIndex}
-                        onSelect={() => { setSelectedPQId(item.pq.id); setDraftType(null); }}
-                        onRemove={() => handleRemovePQ(item.pq.id, item.pq.questionId)}
+                        key={pq.id}
+                        paperQuestion={pq}
+                        question={q}
+                        isSelected={selectedPQId === pq.id}
+                        questionNumber={questionNumber}
+                        showSectionHeader={showSectionHeader}
+                        showTypeHeader={showTypeHeader}
+                        onSelect={() => { setSelectedPQId(pq.id); setDraftType(null); }}
+                        onRemove={() => handleRemovePQ(pq.id, pq.questionId)}
                         onEdit={() => handleEditQuestion()}
                       />
                     );
@@ -748,7 +800,28 @@ export default function Editor() {
         <div className="property-panel-content">
           {!draftType && !selectedPQ && (
             <div className="header-settings">
-              <h3 className="block-palette-title" style={{ padding: 0, marginBottom: 12 }}>Header Customization</h3>
+              <h3 className="block-palette-title" style={{ padding: 0, marginBottom: 12 }}>Paper Metadata</h3>
+              <div className="property-field">
+                <label className="property-label editor-label">Paper Title</label>
+                <input
+                  type="text"
+                  className="property-input"
+                  value={paper.title}
+                  onChange={(e) => updateQuestionPaper(paper.id, { title: e.target.value })}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label editor-label">School/College Name</label>
+                <input
+                  type="text"
+                  className="property-input"
+                  value={user?.schoolName || ''}
+                  onChange={(e) => {
+                    if (user) useStore.getState().setUser({ ...user, schoolName: e.target.value });
+                  }}
+                  placeholder="Enter school name..."
+                />
+              </div>
               <div className="property-field">
                 <label className="property-label editor-label">School/College Logo</label>
                 <input
@@ -768,9 +841,81 @@ export default function Editor() {
                   </button>
                 )}
               </div>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>
-                Tip: You can drag and resize the logo and barcode directly on the paper preview.
-              </p>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label editor-label">Course</label>
+                  <select
+                    className="property-input"
+                    value={paper.courseId || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { courseId: e.target.value || undefined })}
+                  >
+                    <option value="">No Course</option>
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label editor-label">Subject</label>
+                  <select
+                    className="property-input"
+                    value={paper.subjectId || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { subjectId: e.target.value || undefined })}
+                  >
+                    <option value="">No Subject</option>
+                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label editor-label">Class</label>
+                  <select
+                    className="property-input"
+                    value={paper.classId || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { classId: e.target.value || undefined })}
+                  >
+                    <option value="">No Class</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label editor-label">Date</label>
+                  <input
+                    type="date"
+                    className="property-input"
+                    value={paper.date || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label editor-label">Max Marks</label>
+                  <input
+                    type="number"
+                    className="property-input"
+                    value={paper.maxMarks || 0}
+                    onChange={(e) => updateQuestionPaper(paper.id, { maxMarks: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label editor-label">Duration (min)</label>
+                  <input
+                    type="number"
+                    className="property-input"
+                    value={paper.duration || 0}
+                    onChange={(e) => updateQuestionPaper(paper.id, { duration: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+              <div className="property-field">
+                <label className="property-label editor-label">Instructions</label>
+                <textarea
+                  className="property-input"
+                  style={{ minHeight: 80, resize: 'vertical' }}
+                  value={paper.instructions || ''}
+                  onChange={(e) => updateQuestionPaper(paper.id, { instructions: e.target.value })}
+                />
+              </div>
             </div>
           )}
           {draftType && (
@@ -782,6 +927,7 @@ export default function Editor() {
               <div className="property-field">
                 <label className="property-label editor-label">Question Content</label>
                 <div className="rich-editor-wrapper">
+                  <CustomToolbar />
                   <ReactQuill
                     ref={quillRef}
                     theme="snow"
@@ -789,7 +935,7 @@ export default function Editor() {
                     onChange={(content) => setDraftContent(content || '')}
                     placeholder="Enter your question..."
                     modules={modules}
-                    style={{ background: 'white', borderRadius: 'var(--radius-md)' }}
+                    style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
                   />
                 </div>
               </div>
@@ -913,6 +1059,7 @@ export default function Editor() {
               <div className="property-field">
                 <label className="property-label editor-label">Question Content</label>
                 <div className="rich-editor-wrapper">
+                  <CustomToolbar />
                   <ReactQuill
                     ref={quillRef}
                     theme="snow"
@@ -920,7 +1067,7 @@ export default function Editor() {
                     onChange={(content) => setDraftContent(content || '')}
                     placeholder="Enter your question..."
                     modules={modules}
-                    style={{ background: 'white', borderRadius: 'var(--radius-md)' }}
+                    style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
                   />
                 </div>
               </div>
@@ -968,15 +1115,6 @@ export default function Editor() {
             </>
           )}
 
-          {!draftType && !selectedPQ && (
-            <div className="no-selection">
-              <div className="no-selection-icon">
-                <Plus size={24} />
-              </div>
-              <h3>Select or Create</h3>
-              <p>Click a question block on the left to create one, or click a question in the paper to edit</p>
-            </div>
-          )}
         </div>
       </div>
 
