@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
-import { useStore } from '../store';
 import { supabase } from '../supabase';
 
 export default function Login() {
-  const navigate = useNavigate();
-  const setUser = useStore((s) => s.setUser);
   const [name, setName] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [email, setEmail] = useState('');

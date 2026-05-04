@@ -29,13 +29,10 @@ import {
   Check,
   ListChecks,
   AlignLeft,
-  CheckSquare,
   CircleCheck,
   NotebookPen,
   Search,
   Pencil,
-  ChevronDown,
-  ChevronUp,
   Image as ImageIcon,
   Table2,
 } from 'lucide-react';
@@ -197,7 +194,6 @@ export default function Editor() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [suggestedSearch, setSuggestedSearch] = useState('');
-  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [draftType, setDraftType] = useState<QuestionType | null>(null);
@@ -456,36 +452,6 @@ export default function Editor() {
 
   const totalMarks = useMemo(() => {
     return paperQuestionsList.reduce((sum, pq) => sum + pq.marks, 0);
-  }, [paperQuestionsList]);
-
-  const sequentialRenderedList = useMemo(() => {
-    const items: (
-      | { type: 'section'; section: PaperSection }
-      | { type: 'header'; header: string }
-      | { type: 'question'; pq: PaperQuestion; q: Question; questionNumber: number }
-    )[] = [];
-    let lastHeader = '';
-    let questionCounter = 0;
-    let lastSection: PaperSection | null = null;
-    paperQuestionsList.forEach((pq) => {
-      const q = getQuestion(pq.questionId);
-      if (!q) return;
-      if (pq.section !== lastSection) {
-        items.push({ type: 'section' as const, section: pq.section });
-        lastSection = pq.section;
-        questionCounter = 0;
-        lastHeader = '';
-      }
-      const currentHeader = q.typeHeader || '';
-      if (currentHeader && currentHeader !== lastHeader) {
-        items.push({ type: 'header' as const, header: currentHeader });
-        lastHeader = currentHeader;
-        questionCounter = 0;
-      }
-      questionCounter++;
-      items.push({ type: 'question' as const, pq, q, questionNumber: questionCounter });
-    });
-    return items;
   }, [paperQuestionsList]);
 
   const suggestedQuestions = useMemo(() => {
