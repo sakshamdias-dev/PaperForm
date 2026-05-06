@@ -121,7 +121,6 @@ function SortableQuestion({
         </div>
       </div>
       <div className="admin-overlay-right">
-        <span className="marks-text">{paperQuestion.marks} marks</span>
         <button className="hover-action-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit">
           <Pencil size={12} />
         </button>
@@ -144,8 +143,8 @@ function SortableQuestion({
         )}
         <div style={{ display: 'flex', alignItems: 'flex-start' }}>
           <span className="q-number">{questionNumber}.</span>
-          <div style={{ flex: 1 }}>
-            <span className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
             {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
               <div className={`q-options q-options-${mcqLayout}`}>
                 {question.options.map((opt, i) => (
@@ -160,6 +159,7 @@ function SortableQuestion({
               </div>
             )}
           </div>
+          <span className="marks-inline" style={{ flexShrink: 0, marginLeft: 24 }}>{paperQuestion.marks}m</span>
         </div>
       </div>
     </div>
@@ -215,26 +215,13 @@ export default function Editor() {
 
   const confirmTableInsert = () => {
     if (quillRef.current && tableRows > 0 && tableCols > 0) {
-      let tableHtml = '<table>';
-      // Add header row
-      tableHtml += '<thead><tr>';
-      for (let i = 0; i < tableCols; i++) {
-        tableHtml += `<th>Header ${i + 1}</th>`;
-      }
-      tableHtml += '</tr></thead><tbody>';
-      // Add data rows
-      for (let r = 0; r < tableRows; r++) {
-        tableHtml += '<tr>';
-        for (let c = 0; c < tableCols; c++) {
-          tableHtml += `<td>Cell ${r * tableCols + c + 1}</td>`;
-        }
-        tableHtml += '</tr>';
-      }
-      tableHtml += '</tbody></table><p><br></p>';
-
       const quill = quillRef.current.getEditor();
       const range = quill.getSelection();
-      quill.clipboard.dangerouslyPasteHTML(range?.index || 0, tableHtml);
+      const tableModule = quill.getModule('table') as any;
+      if (tableModule) {
+        quill.insertText(range?.index || quill.getLength() - 1, '\n');
+        tableModule.insertTable(tableRows + 1, tableCols);
+      }
     }
     setShowTableDialog(false);
   };
@@ -274,7 +261,8 @@ export default function Editor() {
       handlers: {
         table: insertTable
       }
-    }
+    },
+    table: true
   };
 
   const sensors = useSensors(
@@ -592,7 +580,7 @@ export default function Editor() {
               />
             </div>
           </div>
-          <div className="block-items" style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="block-items" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
             {suggestedQuestions.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
                 <p>No questions found</p>
@@ -601,22 +589,25 @@ export default function Editor() {
               suggestedQuestions.map(q => (
                 <button
                   key={q.id}
-                  className="block-item"
+                  className="block-item bank-item-suggested"
                   onClick={() => handleAddSuggested(q.id)}
                   style={{ position: 'relative' }}
                 >
-                  <div className="block-item-icon">
-                    <Plus size={14} />
+                  <div className="bank-item-actions">
+                    <Plus
+                      size={16}
+                      onClick={(e) => { e.stopPropagation(); handleAddSuggested(q.id); }}
+                      style={{ cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    <Trash2
+                      size={16}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteBankQuestion(q.id); }}
+                      style={{ cursor: 'pointer', flexShrink: 0 }}
+                    />
                   </div>
-                  <div className="block-item-info">
-                    <span className="block-item-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="block-item-info" style={{ paddingRight: 40, minWidth: 0 }}>
+                    <span className="block-item-label">
                       {BLOCK_TYPES.find(b => b.type === q.questionType)?.label || q.questionType}
-                      <Trash2
-                        size={12}
-                        className="bank-delete-hover"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteBankQuestion(q.id); }}
-                        style={{ opacity: 0.5 }}
-                      />
                     </span>
                     <span className="block-item-desc" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {stripHtml(q.content)}
@@ -635,22 +626,35 @@ export default function Editor() {
           <div className="paper-header" style={{ position: 'relative', minHeight: 180 }}>
             {/* Logo Rnd */}
             {paper.headerConfig?.logoUrl && (
-              <Rnd
-                size={{ width: paper.headerConfig.logoSize || 80, height: 'auto' }}
-                position={paper.headerConfig.logoPos || { x: 20, y: 20 }}
-                onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ logoPos: { x: d.x, y: d.y } }); }}
-                onResizeStop={(_e, _dir, ref) => {
-                  void handleUpdateHeaderConfig({ logoSize: parseInt(ref.style.width) });
-                }}
-                bounds="parent"
-                className="no-print-handles"
-              >
+              <>
+                <Rnd
+                  size={{ width: paper.headerConfig.logoSize || 80, height: 'auto' }}
+                  position={paper.headerConfig.logoPos || { x: 20, y: 20 }}
+                  onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ logoPos: { x: d.x, y: d.y } }); }}
+                  onResizeStop={(_e, _dir, ref) => {
+                    void handleUpdateHeaderConfig({ logoSize: parseInt(ref.style.width) });
+                  }}
+                  bounds="parent"
+                  className="no-print-handles"
+                >
+                  <img
+                    src={paper.headerConfig.logoUrl}
+                    alt="Logo"
+                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                  />
+                </Rnd>
                 <img
+                  className="logo-print-only"
                   src={paper.headerConfig.logoUrl}
                   alt="Logo"
-                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                  style={{
+                    position: 'absolute',
+                    left: `${paper.headerConfig.logoPos?.x || 20}px`,
+                    top: `${paper.headerConfig.logoPos?.y || 20}px`,
+                    width: `${paper.headerConfig.logoSize || 80}px`,
+                  }}
                 />
-              </Rnd>
+              </>
             )}
 
             {/* Barcode Rnd */}
@@ -665,6 +669,18 @@ export default function Editor() {
                 <div className="barcode-text">QP Code: {paper.qpCode}</div>
               </div>
             </Rnd>
+
+            {/* Print-only barcode (hidden on screen, visible in print) */}
+            <div
+              className="barcode-print-only"
+              style={{
+                position: 'absolute',
+                left: `${paper.headerConfig?.barcodePos?.x || 550}px`,
+                top: `${paper.headerConfig?.barcodePos?.y || 20}px`,
+              }}
+            >
+              <div className="barcode-text">QP Code: {paper.qpCode}</div>
+            </div>
 
             <h1 className="paper-school-name">{user?.schoolName || 'School Name'}</h1>
             <h2 className="paper-exam-title">{paper.title}</h2>
@@ -719,7 +735,7 @@ export default function Editor() {
 
                     const currentHeader = q.typeHeader || '';
                     const prevHeader = prevQ?.typeHeader || '';
-                    if (currentHeader && (currentHeader !== prevHeader || showSectionHeader)) {
+                    if (currentHeader && currentHeader !== prevHeader) {
                       showTypeHeader = currentHeader;
                     }
 
@@ -753,6 +769,8 @@ export default function Editor() {
               </DndContext>
             </div>
           )}
+          <div className="print-footer">Created using PaperForm</div>
+          <div className="print-spacer" />
         </div>
       </div>
 

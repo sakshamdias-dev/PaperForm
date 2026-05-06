@@ -484,7 +484,7 @@ textarea::placeholder {
 }
 
 .editor-sidebar-title {
-  font-size: 15px;
+  font-size: 2px;
   font-weight: 600;
   color: white;
   margin-bottom: 4px;
@@ -541,7 +541,7 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 9px 16px;
   background: var(--primary-dark);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-md);
@@ -553,13 +553,20 @@ textarea::placeholder {
 }
 
 .block-item:hover {
-  /* background: var(--primary-dark); */
   border-color: var(--accent);
-  transform: translateX(4px);
+  transform: translateX(2px);
 }
 
 .block-item:active {
   transform: scale(0.98);
+}
+
+.bank-item-suggested:hover {
+  transform: none !important;
+}
+
+.bank-item-suggested:active {
+  transform: scale(0.98) !important;
 }
 
 .block-item-icon {
@@ -641,7 +648,7 @@ textarea::placeholder {
 
 .paper-header {
   text-align: center;
-  margin-bottom: 36px;
+  /* margin-bottom: 36px; */
   /* padding-bottom: 5px; */
   border-bottom: 2px solid var(--text-primary);
 }
@@ -1613,13 +1620,13 @@ textarea::placeholder {
 
 .rendered-question-item .section-divider {
   margin: -8px -12px 12px;
-  padding: 12px 12px 8px;
+  padding: 2px 10px 0px;
   background: rgba(0,0,0,0.02);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .rendered-question-item .type-header {
-  margin: 0 0 12px;
+  margin: 0 0 0px;
 }
 
 @media print {
@@ -1745,6 +1752,45 @@ textarea::placeholder {
 
 .q-text {
   line-height: 1.7;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.q-text p {
+  margin: 0;
+  display: inline;
+}
+
+.q-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+.q-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  table-layout: auto;
+}
+
+.q-text table td,
+.q-text table th {
+  border: 1px solid #333;
+  padding: 6px 8px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  display: table-cell;
+}
+
+.q-text table tr {
+  display: table-row;
+}
+
+.q-text table th {
+  font-weight: 700;
+  background: #f5f5f5;
+  text-align: left;
 }
 
 .q-options {
@@ -2038,15 +2084,27 @@ textarea::placeholder {
   border-collapse: collapse;
   width: 100%;
   margin: 8px 0;
+  table-layout: auto;
 }
 
 .question-content-preview table td,
 .question-content-preview table th {
   border: 1px solid var(--border);
-  padding: 6px;
+  padding: 6px 8px;
+}
+
+.question-content-preview table th {
+  font-weight: 700;
+  background: #f5f5f5;
+  text-align: left;
 }
 
 /* Question text with HTML */
+.clean-question .q-text {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 .clean-question .q-text p {
   margin: 0;
   display: inline;
@@ -2061,12 +2119,34 @@ textarea::placeholder {
   border-collapse: collapse;
   width: 100%;
   margin: 8px 0;
+  table-layout: auto;
 }
 
 .clean-question .q-text table td,
 .clean-question .q-text table th {
   border: 1px solid #333;
-  padding: 6px;
+  padding: 6px 8px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  display: table-cell;
+}
+
+.clean-question .q-text table tr {
+  display: table-row;
+}
+
+.clean-question .q-text table th {
+  font-weight: 700;
+  background: #f5f5f5;
+  text-align: left;
+}
+
+.clean-question .q-text table td,
+.clean-question .q-text table th {
+  border: 1px solid #333;
+  padding: 6px 8px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 @media print {
@@ -2080,9 +2160,34 @@ textarea::placeholder {
   .clean-question .q-text {
     font-size: 13px !important;
   }
+
+  .clean-question .q-text table th {
+    background: #f5f5f5 !important;
+    font-weight: 700 !important;
+  }
+
+  .clean-question .q-text table {
+    table-layout: auto !important;
+    width: 100% !important;
+  }
+
+  .clean-question .q-text table td,
+  .clean-question .q-text table th {
+    border: 1px solid #333 !important;
+    display: table-cell !important;
+  }
+
+  .clean-question .q-text table tr {
+    display: table-row !important;
+  }
 }
 
 /* Print Styles - Only the clean paper HTML prints */
+@page {
+  margin: 30px 0 0 0 !important;
+  size: A4;
+}
+
 @media print {
   body {
     margin: 0;
@@ -2113,9 +2218,10 @@ textarea::placeholder {
   .paper-container {
     max-width: 100% !important;
     box-shadow: none !important;
-    padding: 20px 40px !important;
+    padding: 20px 40px 120px !important;
     border-radius: 0 !important;
     min-height: auto !important;
+    overflow: visible !important;
   }
 
   /* Hide admin UI overlays */
@@ -2125,16 +2231,15 @@ textarea::placeholder {
     display: none !important;
   }
 
-  /* Keep marks text visible on print */
-  .admin-overlay-right {
-    position: absolute !important;
-    top: 0 !important;
-    right: 0 !important;
-    opacity: 1 !important;
-    display: flex !important;
-  }
+.marks-inline {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 
-  .marks-text {
+.marks-text {
     font-size: 10px !important;
     color: var(--text-secondary) !important;
   }
@@ -2145,6 +2250,9 @@ textarea::placeholder {
     background: none !important;
     outline: none !important;
     cursor: default !important;
+    position: static !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   .rendered-question-item:hover,
@@ -2158,9 +2266,12 @@ textarea::placeholder {
   }
 
   .type-header,
-  .rendered-question-item,
-  .paper-type-group {
-    page-break-inside: avoid !important;
+  .section-divider {
+    page-break-after: avoid !important;
+  }
+
+  .paper-questions-list {
+    overflow: visible !important;
   }
 
   .q-answer-space {
@@ -2169,6 +2280,8 @@ textarea::placeholder {
 
   .clean-question {
     font-size: 13px !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   .paper-instructions {
@@ -2178,6 +2291,34 @@ textarea::placeholder {
   .paper-info {
     font-size: 10px !important;
   }
+
+.print-spacer {
+  display: none;
+}
+
+  .print-spacer {
+    display: block !important;
+    height: 100px !important;
+  }
+
+  .print-footer {
+    display: block !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 40px !important;
+    text-align: left;
+    font-size: 10px;
+    color: #888;
+    background: white !important;
+    width: calc(100% - 80px) !important;
+    z-index: 100 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.print-footer {
+  display: none;
 }
 
 /* Suggested Questions Dropdown */
@@ -2448,9 +2589,24 @@ textarea::placeholder {
   background: #fcfcfc;
 }
 
+/* Print-only elements - hidden on screen */
+.barcode-print-only,
+.logo-print-only {
+  display: none;
+}
+
+@media print {
+  .no-print-handles {
+    display: none !important;
+  }
+  .barcode-print-only,
+  .logo-print-only {
+    display: block !important;
+  }
+}
+
 /* Hide handles during print */
 @media print {
-  .react-draggable-transparent-selection + div,
   .no-print-handles > div:not(:first-child) {
     display: none !important;
   }
@@ -2462,8 +2618,8 @@ textarea::placeholder {
 
 .paper-header {
   border-bottom: 2px solid #eee;
-  padding-bottom: 20px;
-  margin-bottom: 30px;
+  /* padding-bottom: 20px; */
+  /* margin-bottom: 30px; */
   text-align: center;
 }
 
@@ -2522,6 +2678,55 @@ textarea::placeholder {
   }
 }
 
+.bank-item-suggested {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.bank-item-suggested:hover {
+  transform: none !important;
+}
+
+.bank-item-suggested:active {
+  transform: scale(0.98) !important;
+}
+
+.bank-item-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.bank-item-actions svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+}
+
+.bank-item-actions svg:first-child {
+  color: var(--accent) !important;
+}
+
+.bank-item-actions svg:last-child {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.bank-item-actions svg:first-child:hover {
+  opacity: 0.8;
+}
+
+.bank-item-actions svg:last-child:hover {
+  color: #ff4444 !important;
+}
+
+.block-item-info {
+  min-width: 0;
+}
+
 .bank-delete-hover {
   transition: all 0.2s ease;
   padding: 4px;
@@ -2537,6 +2742,7 @@ textarea::placeholder {
 .block-item-desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2599,4 +2805,33 @@ textarea::placeholder {
   min-height: 120px;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.ql-editor table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  table-layout: auto !important;
+  margin: 8px 0 !important;
+}
+
+.ql-editor table td,
+.ql-editor table th {
+  border: 1px solid #333 !important;
+  padding: 6px 8px !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.ql-editor table th {
+  font-weight: 700 !important;
+  background: #f5f5f5 !important;
+  text-align: left !important;
+}
+
+.ql-editor table tr {
+  display: table-row !important;
+}
+
+.ql-editor table td {
+  display: table-cell !important;
 }
