@@ -1752,14 +1752,11 @@ textarea::placeholder {
 
 .q-text {
   line-height: 1.7;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
   white-space: normal;
 }
 
 .q-text p {
   margin: 0;
-  display: inline;
 }
 
 .q-text img {
@@ -2099,15 +2096,8 @@ textarea::placeholder {
   text-align: left;
 }
 
-/* Question text with HTML */
-.clean-question .q-text {
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
 .clean-question .q-text p {
   margin: 0;
-  display: inline;
 }
 
 .clean-question .q-text img {
