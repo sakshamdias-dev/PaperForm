@@ -271,6 +271,13 @@ export default function Editor() {
   );
 
   const paperRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+
+  const PAGE_HEIGHT = 953;
+  const HEADER_ESTIMATE = 190;
+  const REST_HEADER_ESTIMATE = 35;
+
+  const [pageRanges, setPageRanges] = useState<Array<{ start: number; end: number }>>([{ start: 0, end: 0 }]);
 
   useEffect(() => {
     if (id) {
@@ -282,6 +289,37 @@ export default function Editor() {
   const paperQuestionsList = useMemo(() => {
     return paperQuestions.get(id || '') || [];
   }, [paperQuestions, id]);
+
+  useEffect(() => {
+    if (paperQuestionsList.length === 0) {
+      setPageRanges([{ start: 0, end: 0 }]);
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      if (!measureRef.current) return;
+      const items = measureRef.current.querySelectorAll('[data-pq-id]');
+      if (items.length === 0) {
+        setPageRanges([{ start: 0, end: paperQuestionsList.length }]);
+        return;
+      }
+      let curH = HEADER_ESTIMATE;
+      let curStart = 0;
+      const ranges: Array<{ start: number; end: number }> = [];
+      [...items].forEach((el, i) => {
+        const h = el.getBoundingClientRect().height + 16;
+        if (curH + h > PAGE_HEIGHT && i > curStart) {
+          ranges.push({ start: curStart, end: i });
+          curStart = i;
+          curH = (ranges.length === 0 ? HEADER_ESTIMATE : REST_HEADER_ESTIMATE) + h;
+        } else {
+          curH += h;
+        }
+      });
+      ranges.push({ start: curStart, end: paperQuestionsList.length });
+      setPageRanges(ranges);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [paperQuestionsList, questions]);
 
   const showToastMessage = (message: string) => {
     setToastMessage(message);
@@ -493,6 +531,130 @@ export default function Editor() {
     );
   }
 
+  const renderQuestionRange = (startIdx: number, endIdx: number) => {
+    return paperQuestionsList.slice(startIdx, endIdx).map((pq, idx) => {
+      const globalIndex = startIdx + idx;
+      const q = getQuestion(pq.questionId);
+      if (!q) return null;
+
+      let showSectionHeader: string | undefined;
+      let showTypeHeader: string | undefined;
+
+      const prevPQ = globalIndex > 0 ? paperQuestionsList[globalIndex - 1] : null;
+      const prevQ = prevPQ ? getQuestion(prevPQ.questionId) : null;
+
+      if (!prevPQ || prevPQ.section !== pq.section) {
+        showSectionHeader = pq.section;
+      }
+
+      const currentHeader = q.typeHeader || '';
+      const prevHeader = prevQ?.typeHeader || '';
+      if (currentHeader && currentHeader !== prevHeader) {
+        showTypeHeader = currentHeader;
+      }
+
+      let questionNumber = 1;
+      for (let i = globalIndex - 1; i >= 0; i--) {
+        const itemPQ = paperQuestionsList[i];
+        const itemQ = getQuestion(itemPQ.questionId);
+        if (itemPQ.section !== pq.section || (itemQ?.typeHeader !== q.typeHeader)) {
+          break;
+        }
+        questionNumber++;
+      }
+
+      return (
+        <SortableQuestion
+          key={pq.id}
+          paperQuestion={pq}
+          question={q}
+          isSelected={selectedPQId === pq.id}
+          questionNumber={questionNumber}
+          showSectionHeader={showSectionHeader}
+          showTypeHeader={showTypeHeader}
+          onSelect={() => { setSelectedPQId(pq.id); setDraftType(null); }}
+          onRemove={() => handleRemovePQ(pq.id, pq.questionId)}
+          onEdit={() => handleEditQuestion()}
+        />
+      );
+    });
+  };
+
+  const renderPaperHeader = () => (
+    <div className="paper-header" style={{ position: 'relative', minHeight: 180 }}>
+      {paper.headerConfig?.logoUrl && (
+        <>
+          <Rnd
+            size={{ width: paper.headerConfig.logoSize || 80, height: 'auto' }}
+            position={paper.headerConfig.logoPos || { x: 20, y: 20 }}
+            onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ logoPos: { x: d.x, y: d.y } }); }}
+            onResizeStop={(_e, _dir, ref) => {
+              void handleUpdateHeaderConfig({ logoSize: parseInt(ref.style.width) });
+            }}
+            bounds="parent"
+            className="no-print-handles"
+          >
+            <img
+              src={paper.headerConfig.logoUrl}
+              alt="Logo"
+              style={{ width: '100%', height: 'auto', display: 'block' }}
+            />
+          </Rnd>
+          <img
+            className="logo-print-only"
+            src={paper.headerConfig.logoUrl}
+            alt="Logo"
+            style={{
+              position: 'absolute',
+              left: `${paper.headerConfig.logoPos?.x || 20}px`,
+              top: `${paper.headerConfig.logoPos?.y || 20}px`,
+              width: `${paper.headerConfig.logoSize || 80}px`,
+            }}
+          />
+        </>
+      )}
+
+      <Rnd
+        position={paper.headerConfig?.barcodePos || { x: 550, y: 20 }}
+        onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ barcodePos: { x: d.x, y: d.y } }); }}
+        bounds="parent"
+        disableResizing
+        className="no-print-handles"
+      >
+        <div className="barcode-wrapper">
+          <div className="barcode-text">QP Code: {paper.qpCode}</div>
+        </div>
+      </Rnd>
+
+      <div
+        className="barcode-print-only"
+        style={{
+          position: 'absolute',
+          left: `${paper.headerConfig?.barcodePos?.x || 550}px`,
+          top: `${paper.headerConfig?.barcodePos?.y || 20}px`,
+        }}
+      >
+        <div className="barcode-text">QP Code: {paper.qpCode}</div>
+      </div>
+
+      <h1 className="paper-school-name">{user?.schoolName || 'School Name'}</h1>
+      <h2 className="paper-exam-title">{paper.title}</h2>
+      <div className="paper-info">
+        <span>Course: {getCourse(paper.courseId)?.name || '-'}</span>
+        <span>Subject: {getSubject(paper.subjectId)?.name || '-'}</span>
+        <span>Class: {getClass(paper.classId)?.name || '-'}</span>
+        {paper.date && <span>Date: {new Date(paper.date).toLocaleDateString()}</span>}
+        {paper.duration && <span>Duration: {paper.duration} min</span>}
+        <span>Marks: {totalMarks} / {paper.maxMarks || totalMarks}</span>
+      </div>
+      {paper.instructions && (
+        <div className="paper-instructions">
+          <strong>Instructions:</strong> {paper.instructions}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="editor-layout">
       {/* Table Insertion Dialog */}
@@ -623,151 +785,111 @@ export default function Editor() {
       {/* CENTER - Clean HTML Paper (WYSIWYG) */}
       <div className="editor-canvas">
         <div className="paper-container" ref={paperRef} id="printable-paper">
-          <div className="paper-header" style={{ position: 'relative', minHeight: 180 }}>
-            {/* Logo Rnd */}
-            {paper.headerConfig?.logoUrl && (
-              <>
-                <Rnd
-                  size={{ width: paper.headerConfig.logoSize || 80, height: 'auto' }}
-                  position={paper.headerConfig.logoPos || { x: 20, y: 20 }}
-                  onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ logoPos: { x: d.x, y: d.y } }); }}
-                  onResizeStop={(_e, _dir, ref) => {
-                    void handleUpdateHeaderConfig({ logoSize: parseInt(ref.style.width) });
-                  }}
-                  bounds="parent"
-                  className="no-print-handles"
-                >
-                  <img
-                    src={paper.headerConfig.logoUrl}
-                    alt="Logo"
-                    style={{ width: '100%', height: 'auto', display: 'block' }}
-                  />
-                </Rnd>
-                <img
-                  className="logo-print-only"
-                  src={paper.headerConfig.logoUrl}
-                  alt="Logo"
-                  style={{
-                    position: 'absolute',
-                    left: `${paper.headerConfig.logoPos?.x || 20}px`,
-                    top: `${paper.headerConfig.logoPos?.y || 20}px`,
-                    width: `${paper.headerConfig.logoSize || 80}px`,
-                  }}
-                />
-              </>
-            )}
-
-            {/* Barcode Rnd */}
-            <Rnd
-              position={paper.headerConfig?.barcodePos || { x: 550, y: 20 }}
-              onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ barcodePos: { x: d.x, y: d.y } }); }}
-              bounds="parent"
-              disableResizing
-              className="no-print-handles"
-            >
-              <div className="barcode-wrapper">
-                <div className="barcode-text">QP Code: {paper.qpCode}</div>
-              </div>
-            </Rnd>
-
-            {/* Print-only barcode (hidden on screen, visible in print) */}
-            <div
-              className="barcode-print-only"
-              style={{
-                position: 'absolute',
-                left: `${paper.headerConfig?.barcodePos?.x || 550}px`,
-                top: `${paper.headerConfig?.barcodePos?.y || 20}px`,
-              }}
-            >
-              <div className="barcode-text">QP Code: {paper.qpCode}</div>
-            </div>
-
-            <h1 className="paper-school-name">{user?.schoolName || 'School Name'}</h1>
-            <h2 className="paper-exam-title">{paper.title}</h2>
-            <div className="paper-info">
-              <span>Course: {getCourse(paper.courseId)?.name || '-'}</span>
-              <span>Subject: {getSubject(paper.subjectId)?.name || '-'}</span>
-              <span>Class: {getClass(paper.classId)?.name || '-'}</span>
-              {paper.date && <span>Date: {new Date(paper.date).toLocaleDateString()}</span>}
-              {paper.duration && <span>Duration: {paper.duration} min</span>}
-              <span>Marks: {totalMarks} / {paper.maxMarks || totalMarks}</span>
-            </div>
-            {paper.instructions && (
-              <div className="paper-instructions">
-                <strong>Instructions:</strong> {paper.instructions}
-              </div>
-            )}
+          {/* Hidden measurement container */}
+          <div
+            ref={measureRef}
+            style={{
+              position: 'absolute', left: -9999, top: 0,
+              width: '794px', padding: '20px 40px',
+              background: 'white', zIndex: -1, opacity: 0, pointerEvents: 'none',
+            }}
+          >
+            {paperQuestionsList.map((pq) => {
+              const q = getQuestion(pq.questionId);
+              if (!q) return null;
+              const mcqLayout = q.questionType === 'mcq' ? getMcqLayout(q.options || []) : 'vertical';
+              return (
+                <div key={pq.id} data-pq-id={pq.id} className="clean-question" style={{ padding: '8px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                    <span className="q-number">1.</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="q-text" dangerouslySetInnerHTML={{ __html: q.content }} />
+                      {q.questionType === 'mcq' && q.options && q.options.length > 0 && (
+                        <div className={`q-options q-options-${mcqLayout}`}>
+                          {q.options.map((opt, i) => (
+                            <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
+                          ))}
+                        </div>
+                      )}
+                      {q.questionType === 'truefalse' && (
+                        <div className="q-options q-options-horizontal">
+                          <span className="q-option">(a) True</span>
+                          <span className="q-option">(b) False</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="marks-inline" style={{ flexShrink: 0, marginLeft: 24 }}>{pq.marks}m</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {paperQuestionsList.length === 0 ? (
-            <div className="empty-paper">
-              <div className="empty-paper-icon">
-                <Plus size={28} />
+            <div className="paper-page last-page">
+              {renderPaperHeader()}
+              <div className="empty-paper">
+                <div className="empty-paper-icon">
+                  <Plus size={28} />
+                </div>
+                <h3>No questions yet</h3>
+                <p>Select a question block from the left panel to get started</p>
               </div>
-              <h3>No questions yet</h3>
-              <p>Select a question block from the left panel to get started</p>
+            </div>
+          ) : pageRanges[0].end === 0 ? (
+            <div className="paper-page last-page">
+              {renderPaperHeader()}
+              <div className="paper-questions-list">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={paperQuestionsList.map(pq => pq.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {renderQuestionRange(0, paperQuestionsList.length)}
+                  </SortableContext>
+                </DndContext>
+              </div>
             </div>
           ) : (
-            <div className="paper-questions-list">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={paperQuestionsList.map(pq => pq.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {paperQuestionsList.map((pq, index) => {
-                    const q = getQuestion(pq.questionId);
-                    if (!q) return null;
-
-                    // Calculate if we should show headers
-                    let showSectionHeader: string | undefined;
-                    let showTypeHeader: string | undefined;
-
-                    const prevPQ = index > 0 ? paperQuestionsList[index - 1] : null;
-                    const prevQ = prevPQ ? getQuestion(prevPQ.questionId) : null;
-
-                    if (!prevPQ || prevPQ.section !== pq.section) {
-                      showSectionHeader = pq.section;
-                    }
-
-                    const currentHeader = q.typeHeader || '';
-                    const prevHeader = prevQ?.typeHeader || '';
-                    if (currentHeader && currentHeader !== prevHeader) {
-                      showTypeHeader = currentHeader;
-                    }
-
-                    // Calculate question number within section/type
-                    let questionNumber = 1;
-                    for (let i = index - 1; i >= 0; i--) {
-                      const itemPQ = paperQuestionsList[i];
-                      const itemQ = getQuestion(itemPQ.questionId);
-                      if (itemPQ.section !== pq.section || (itemQ?.typeHeader !== q.typeHeader)) {
-                        break;
-                      }
-                      questionNumber++;
-                    }
-
-                    return (
-                      <SortableQuestion
-                        key={pq.id}
-                        paperQuestion={pq}
-                        question={q}
-                        isSelected={selectedPQId === pq.id}
-                        questionNumber={questionNumber}
-                        showSectionHeader={showSectionHeader}
-                        showTypeHeader={showTypeHeader}
-                        onSelect={() => { setSelectedPQId(pq.id); setDraftType(null); }}
-                        onRemove={() => handleRemovePQ(pq.id, pq.questionId)}
-                        onEdit={() => handleEditQuestion()}
-                      />
-                    );
-                  })}
-                </SortableContext>
-              </DndContext>
-            </div>
+            pageRanges.map((range, pageIdx) => {
+              const pageIds = paperQuestionsList.slice(range.start, range.end).map(pq => pq.id);
+              return (
+                <div key={pageIdx} className={`paper-page${pageIdx === pageRanges.length - 1 ? ' last-page' : ''}`}>
+                  {pageIdx === 0 ? (
+                    renderPaperHeader()
+                  ) : (
+                    <div style={{
+                      textAlign: 'right',
+                      fontSize: 11,
+                      color: '#888',
+                      marginBottom: 16,
+                      paddingBottom: 8,
+                      borderBottom: '1px solid #ccc',
+                    }}>
+                      {paper.qpCode} • Continued...
+                    </div>
+                  )}
+                  <div className="paper-questions-list">
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={pageIds}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {renderQuestionRange(range.start, range.end)}
+                      </SortableContext>
+                    </DndContext>
+                  </div>
+                </div>
+              );
+            })
           )}
           <div className="print-footer">Created using PaperForm</div>
           <div className="print-spacer" />

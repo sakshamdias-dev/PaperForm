@@ -636,14 +636,25 @@ textarea::placeholder {
 }
 
 .paper-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 32px 0;
   width: 100%;
-  max-width: 780px;
+  max-width: 820px;
+}
+
+.paper-page {
+  width: 100%;
+  max-width: 794px;
+  min-height: 1093px;
   background: white;
-  min-height: 1000px;
   box-shadow: var(--shadow-lg);
-  padding: 30px 52px;
+  padding: 20px 40px 120px;
   position: relative;
   border-radius: 4px;
+  overflow: hidden;
 }
 
 .paper-header {
@@ -1616,6 +1627,7 @@ textarea::placeholder {
   border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 0;
 }
 
 .rendered-question-item .section-divider {
@@ -1742,6 +1754,8 @@ textarea::placeholder {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-primary);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .q-number {
@@ -1753,6 +1767,8 @@ textarea::placeholder {
 .q-text {
   line-height: 1.7;
   white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .q-text p {
@@ -1804,7 +1820,9 @@ textarea::placeholder {
 }
 
 .q-options-horizontal .q-option {
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .q-options-grid {
@@ -2207,11 +2225,24 @@ textarea::placeholder {
 
   .paper-container {
     max-width: 100% !important;
+    display: block !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    background: transparent !important;
+  }
+
+  .paper-page {
+    page-break-after: always !important;
     box-shadow: none !important;
-    padding: 20px 40px 120px !important;
     border-radius: 0 !important;
     min-height: auto !important;
     overflow: visible !important;
+    max-width: 100% !important;
+    padding: 20px 40px 120px !important;
+  }
+
+  .paper-page.last-page {
+    page-break-after: auto !important;
   }
 
   /* Hide admin UI overlays */
@@ -2286,11 +2317,6 @@ textarea::placeholder {
   display: none;
 }
 
-  .print-spacer {
-    display: block !important;
-    height: 100px !important;
-  }
-
   .print-footer {
     display: block !important;
     position: fixed !important;
@@ -2298,10 +2324,12 @@ textarea::placeholder {
     left: 40px !important;
     text-align: left;
     font-size: 10px;
-    color: #888;
+    color: #000 !important;
     background: white !important;
     width: calc(100% - 80px) !important;
     z-index: 100 !important;
+    border-top: 1px solid #888 !important;
+    padding: 0 0 4px !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -2546,7 +2574,7 @@ textarea::placeholder {
     padding: 16px;
   }
 
-  .paper-container {
+  .paper-page {
     padding: 24px;
     min-height: 600px;
   }
