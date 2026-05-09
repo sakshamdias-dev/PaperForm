@@ -80,13 +80,13 @@ function getMcqLayout(options: string[]): string {
   return 'horizontal';
 }
 
-function SortableQuestion({ 
-  paperQuestion, 
-  question, 
-  isSelected, 
-  questionNumber, 
-  onSelect, 
-  onRemove, 
+function SortableQuestion({
+  paperQuestion,
+  question,
+  isSelected,
+  questionNumber,
+  onSelect,
+  onRemove,
   onEdit,
   showSectionHeader,
   showTypeHeader
@@ -481,9 +481,28 @@ export default function Editor() {
   }, [paperQuestionsList]);
 
   const suggestedQuestions = useMemo(() => {
-    return questions
-      .filter(q => !suggestedSearch || q.content.toLowerCase().includes(suggestedSearch.toLowerCase()))
-      .slice(0, 15);
+    // Deduplicate questions by content so the bank doesn't show identical clones
+    const uniqueQuestions = [];
+    const seenContent = new Set();
+
+    for (const q of questions) {
+      const normalized = stripHtml(q.content).replace(/\s+/g, '').toLowerCase();
+      if (!seenContent.has(normalized)) {
+        seenContent.add(normalized);
+        uniqueQuestions.push(q);
+      }
+    }
+
+    const searchTerms = suggestedSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
+
+    return uniqueQuestions
+      .filter(q => {
+        if (searchTerms.length === 0) return true;
+        const plainText = stripHtml(q.content).toLowerCase();
+        // Question matches if it contains ALL search terms
+        return searchTerms.every(term => plainText.includes(term));
+      })
+      .slice(0, 30);
   }, [questions, suggestedSearch]);
 
   const handleAddSuggested = async (questionId: string) => {
@@ -492,6 +511,8 @@ export default function Editor() {
     if (!q) return;
     setSaving(true);
     try {
+      // Create a fresh clone so we bypass the unique (paper_id, question_id) database constraint,
+      // allowing the user to add the same question multiple times to the same paper.
       await createAndAddQuestion(
         id,
         q.content,
@@ -503,8 +524,8 @@ export default function Editor() {
         q.subjectId,
         q.classId,
         q.difficulty,
-        undefined,
-        undefined,
+        q.explanation,
+        q.imageUrl,
         q.typeHeader || getTypeHeader(q.questionType),
       );
       showToastMessage('Question added from bank!');
@@ -581,7 +602,7 @@ export default function Editor() {
   };
 
   const renderPaperHeader = () => (
-    <div className="paper-header" style={{ position: 'relative', minHeight: 180 }}>
+    <div className="paper-header" style={{ position: 'relative', paddingBottom: 16, marginBottom: 8 }}>
       {paper.headerConfig?.logoUrl && (
         <>
           <Rnd
@@ -708,7 +729,7 @@ export default function Editor() {
           </p>
         </div>
 
-        <div className="block-palette">
+        <div className="block-palette" style={{ flex: '0 0 auto', overflow: 'visible' }}>
           <h3 className="block-palette-title">Question Blocks</h3>
           <div className="block-items">
             {BLOCK_TYPES.map(({ type, label, icon: Icon, description }) => (
@@ -727,9 +748,9 @@ export default function Editor() {
           </div>
         </div>
 
-        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <h3 className="block-palette-title">Question Bank</h3>
-          <div style={{ padding: '0 12px 8px' }}>
+          <div style={{ padding: '0 0 12px 4px' }}>
             <div style={{ position: 'relative' }}>
               <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
               <input
@@ -742,32 +763,30 @@ export default function Editor() {
               />
             </div>
           </div>
-          <div className="block-items" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          <div className="block-items" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 4px', minHeight: 0 }}>
             {suggestedQuestions.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
                 <p>No questions found</p>
               </div>
             ) : (
               suggestedQuestions.map(q => (
-                <button
+                <div
                   key={q.id}
                   className="block-item bank-item-suggested"
                   onClick={() => handleAddSuggested(q.id)}
-                  style={{ position: 'relative' }}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '10px 12px',
+                    marginBottom: 8,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    flexShrink: 0
+                  }}
                 >
-                  <div className="bank-item-actions">
-                    <Plus
-                      size={16}
-                      onClick={(e) => { e.stopPropagation(); handleAddSuggested(q.id); }}
-                      style={{ cursor: 'pointer', flexShrink: 0 }}
-                    />
-                    <Trash2
-                      size={16}
-                      onClick={(e) => { e.stopPropagation(); handleDeleteBankQuestion(q.id); }}
-                      style={{ cursor: 'pointer', flexShrink: 0 }}
-                    />
-                  </div>
-                  <div className="block-item-info" style={{ paddingRight: 40, minWidth: 0 }}>
+                  <div className="block-item-info" style={{ flex: 1, minWidth: 0 }}>
                     <span className="block-item-label">
                       {BLOCK_TYPES.find(b => b.type === q.questionType)?.label || q.questionType}
                     </span>
@@ -775,7 +794,25 @@ export default function Editor() {
                       {stripHtml(q.content)}
                     </span>
                   </div>
-                </button>
+                  <div
+                    className="bank-item-actions"
+                    style={{ position: 'static', display: 'flex', gap: 8, flexShrink: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Plus
+                      size={16}
+                      onClick={() => handleAddSuggested(q.id)}
+                      style={{ cursor: 'pointer', color: 'var(--accent)' }}
+                      className="bank-action-icon"
+                    />
+                    <Trash2
+                      size={16}
+                      onClick={() => handleDeleteBankQuestion(q.id)}
+                      style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}
+                      className="bank-action-icon hover-danger"
+                    />
+                  </div>
+                </div>
               ))
             )}
           </div>

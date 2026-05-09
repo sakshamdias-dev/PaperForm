@@ -659,33 +659,34 @@ textarea::placeholder {
 
 .paper-header {
   text-align: center;
-  /* margin-bottom: 36px; */
-  /* padding-bottom: 5px; */
-  border-bottom: 2px solid var(--text-primary);
+  border-bottom: 2px solid #000 !important;
 }
 
 .paper-school-name {
-  font-family: var(--font-serif);
-  font-size: 16px;
+  font-family: var(--font-sans);
+  font-size: 20px;
   font-weight: 700;
   margin-bottom: 6px;
   letter-spacing: 0.5px;
+  color: #000 !important;
 }
 
 .paper-exam-title {
-  font-family: var(--font-serif);
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: 15px;
   font-weight: 600;
   margin-bottom: 4px;
+  color: #000 !important;
 }
 
 .paper-info {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: #000 !important;
+  font-weight: 500;
   display: flex;
   justify-content: center;
-  gap: 28px;
-  margin-top: 10px;
+  gap: 24px;
+  margin-top: 12px;
   flex-wrap: wrap;
 }
 
@@ -2852,4 +2853,20 @@ textarea::placeholder {
 
 .ql-editor table td {
   display: table-cell !important;
+}
+
+.bank-action-icon {
+  transition: transform 0.2s ease, color 0.2s ease;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.bank-action-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.bank-action-icon.hover-danger:hover {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.1);
 }
