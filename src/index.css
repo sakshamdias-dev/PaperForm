@@ -523,6 +523,22 @@ textarea::placeholder {
   margin-bottom: 24px;
 }
 
+/* Fix Quill tooltip in narrow panels */
+.editor-sidebar .ql-tooltip,
+.property-panel .ql-tooltip {
+  left: 0 !important;
+  right: auto !important;
+  transform: none !important;
+  max-width: 260px !important;
+  white-space: normal !important;
+  z-index: 1000 !important;
+}
+
+.editor-sidebar .ql-tooltip input[type="text"],
+.property-panel .ql-tooltip input[type="text"] {
+  max-width: 150px !important;
+}
+
 .block-palette-title {
   font-size: 11px;
   text-transform: uppercase;
@@ -648,14 +664,18 @@ textarea::placeholder {
 .paper-page {
   width: 100%;
   max-width: 794px;
-  min-height: 1093px;
-  background: white;
+  height: auto;
+  min-height: 1123px;
+  background: #fff;
   box-shadow: var(--shadow-lg);
-  padding: 20px 40px 120px;
+  padding: 40px 50px 120px;
   position: relative;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
+  transition: all 0.3s ease;
 }
+
+
 
 .paper-header {
   text-align: center;
@@ -663,23 +683,24 @@ textarea::placeholder {
 }
 
 .paper-school-name {
-  font-family: var(--font-sans);
-  font-size: 20px;
+  font-family: var(--font-serif);
+  font-size: 24px;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   letter-spacing: 0.5px;
   color: #000 !important;
 }
 
 .paper-exam-title {
-  font-family: var(--font-sans);
-  font-size: 15px;
+  font-family: var(--font-serif);
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: #000 !important;
 }
 
 .paper-info {
+  font-family: var(--font-serif);
   font-size: 13px;
   color: #000 !important;
   font-weight: 500;
@@ -693,12 +714,30 @@ textarea::placeholder {
 .paper-instructions {
   margin-top: 12px;
   padding: 10px 16px;
-  /* background: #FFF8E6; */
-  /* border: 1px solid #F5D89A; */
-  /* border-radius: var(--radius-sm); */
-  font-size: 12px;
-  /* color: #8B6914; */
+  font-family: var(--font-serif);
+  font-size: 13px;
   text-align: left;
+}
+
+.paper-instructions p {
+  margin: 2px 0;
+}
+
+.paper-instructions .ql-formula {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* KaTeX formula rendering in paper preview */
+.paper-page .ql-formula,
+.paper-container .ql-formula {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 0 2px;
+}
+
+.paper-page .katex {
+  font-size: 1em;
 }
 
 .paper-blocks {
@@ -1629,6 +1668,8 @@ textarea::placeholder {
   cursor: pointer;
   transition: all 0.2s ease;
   min-width: 0;
+  break-inside: auto !important;
+  page-break-inside: auto !important;
 }
 
 .rendered-question-item .section-divider {
@@ -2307,11 +2348,27 @@ textarea::placeholder {
   }
 
   .paper-instructions {
-    font-size: 10px !important;
+    font-family: var(--font-serif) !important;
+    font-size: 11px !important;
+  }
+
+  .paper-instructions p {
+    margin: 2px 0 !important;
+  }
+
+  /* Ensure KaTeX renders in print */
+  .ql-formula {
+    display: inline-block !important;
+    vertical-align: middle !important;
+  }
+
+  .katex {
+    font-size: 1em !important;
   }
 
   .paper-info {
-    font-size: 10px !important;
+    font-family: var(--font-serif) !important;
+    font-size: 11px !important;
   }
 
 .print-spacer {
@@ -2324,13 +2381,14 @@ textarea::placeholder {
     bottom: 0 !important;
     left: 40px !important;
     text-align: left;
-    font-size: 10px;
+    font-family: var(--font-serif) !important;
+    font-size: 11px !important;
     color: #000 !important;
     background: white !important;
     width: calc(100% - 80px) !important;
     z-index: 100 !important;
-    border-top: 1px solid #888 !important;
-    padding: 0 0 4px !important;
+    border-top: 1px solid #000 !important;
+    padding: 16px 0 8px !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

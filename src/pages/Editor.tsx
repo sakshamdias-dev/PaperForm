@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   DndContext,
@@ -19,6 +19,11 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
+
+// Quill formula module requires katex on window
+(window as any).katex = katex;
 import { Rnd } from 'react-rnd';
 import {
   Plus,
@@ -69,7 +74,7 @@ interface SortableQuestionProps {
 }
 
 function getMaxWordsInOptions(options: string[]): number {
-  return Math.max(...options.map(o => o.trim().split(/\s+/).filter(Boolean).length));
+  return Math.max(...options.map(o => stripHtml(o).trim().split(/\s+/).filter(Boolean).length));
 }
 
 function getMcqLayout(options: string[]): string {
@@ -148,7 +153,10 @@ function SortableQuestion({
             {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
               <div className={`q-options q-options-${mcqLayout}`}>
                 {question.options.map((opt, i) => (
-                  <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
+                  <span key={i} className="q-option" style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
+                    <span style={{ marginRight: '4px' }}>{String.fromCharCode(65 + i)}.</span>
+                    <span dangerouslySetInnerHTML={{ __html: opt }} />
+                  </span>
                 ))}
               </div>
             )}
@@ -250,20 +258,81 @@ export default function Editor() {
         <button className="ql-table">
           <Table2 size={16} />
         </button>
+        <button className="ql-formula" />
         <button className="ql-clean" />
       </span>
     </div>
   );
 
+  // Custom formula handler: prompts for LaTeX and inserts inline (no Quill popup)
+  const handleFormula = useCallback(() => {
+    if (!quillRef.current) return;
+    const quill = quillRef.current.getEditor();
+    const latex = prompt('Enter LaTeX expression (e.g. \\frac{x^2+1}{x^2-1}):');
+    if (latex) {
+      const range = quill.getSelection(true);
+      quill.insertEmbed(range.index, 'formula', latex, 'user');
+      quill.setSelection(range.index + 1, 0);
+    }
+  }, []);
+
   const modules = {
     toolbar: {
       container: "#toolbar",
       handlers: {
-        table: insertTable
+        table: insertTable,
+        formula: handleFormula,
       }
     },
     table: true
   };
+
+  // Modules for the mini editors (options, instructions)
+  const miniToolbar = useMemo(() => [
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'script': 'sub' }, { 'script': 'super' }],
+    ['formula'],
+    ['clean']
+  ], []);
+
+  // Wrapper to override formula handler in mini Quill editors
+  const MiniQuill = useCallback(({ value, onChange, placeholder, style }: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    style?: React.CSSProperties;
+  }) => {
+    const miniRef = useRef<ReactQuill>(null);
+
+    useEffect(() => {
+      if (miniRef.current) {
+        const quill = miniRef.current.getEditor();
+        const toolbar = quill.getModule('toolbar') as any;
+        if (toolbar) {
+          toolbar.addHandler('formula', () => {
+            const latex = prompt('Enter LaTeX expression (e.g. \\frac{a}{b}):');
+            if (latex) {
+              const range = quill.getSelection(true);
+              quill.insertEmbed(range.index, 'formula', latex, 'user');
+              quill.setSelection(range.index + 1, 0);
+            }
+          });
+        }
+      }
+    }, []);
+
+    return (
+      <ReactQuill
+        ref={miniRef}
+        theme="snow"
+        value={value}
+        onChange={onChange}
+        modules={{ toolbar: miniToolbar }}
+        placeholder={placeholder}
+        style={style}
+      />
+    );
+  }, [miniToolbar]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -273,53 +342,34 @@ export default function Editor() {
   const paperRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
 
-  const PAGE_HEIGHT = 953;
-  const HEADER_ESTIMATE = 190;
-  const REST_HEADER_ESTIMATE = 35;
-
-  const [pageRanges, setPageRanges] = useState<Array<{ start: number; end: number }>>([{ start: 0, end: 0 }]);
-
   useEffect(() => {
     if (id) {
       fetchPaperQuestions(id);
       fetchQuestions();
     }
-  }, [id]);
+  }, [id, fetchPaperQuestions, fetchQuestions]);
 
   const paperQuestionsList = useMemo(() => {
     return paperQuestions.get(id || '') || [];
   }, [paperQuestions, id]);
 
+  // Render KaTeX formulas in the paper preview
   useEffect(() => {
-    if (paperQuestionsList.length === 0) {
-      setPageRanges([{ start: 0, end: 0 }]);
-      return;
-    }
-    const raf = requestAnimationFrame(() => {
-      if (!measureRef.current) return;
-      const items = measureRef.current.querySelectorAll('[data-pq-id]');
-      if (items.length === 0) {
-        setPageRanges([{ start: 0, end: paperQuestionsList.length }]);
-        return;
-      }
-      let curH = HEADER_ESTIMATE;
-      let curStart = 0;
-      const ranges: Array<{ start: number; end: number }> = [];
-      [...items].forEach((el, i) => {
-        const h = el.getBoundingClientRect().height + 16;
-        if (curH + h > PAGE_HEIGHT && i > curStart) {
-          ranges.push({ start: curStart, end: i });
-          curStart = i;
-          curH = (ranges.length === 0 ? HEADER_ESTIMATE : REST_HEADER_ESTIMATE) + h;
-        } else {
-          curH += h;
+    if (!paperRef.current) return;
+    const formulas = paperRef.current.querySelectorAll('.ql-formula');
+    formulas.forEach((el) => {
+      const latex = el.getAttribute('data-value');
+      if (latex && !el.querySelector('.katex')) {
+        try {
+          katex.render(latex, el as HTMLElement, { throwOnError: false, displayMode: false });
+        } catch {
+          // leave as-is if rendering fails
         }
-      });
-      ranges.push({ start: curStart, end: paperQuestionsList.length });
-      setPageRanges(ranges);
+      }
     });
-    return () => cancelAnimationFrame(raf);
-  }, [paperQuestionsList, questions]);
+  });
+
+
 
   const showToastMessage = (message: string) => {
     setToastMessage(message);
@@ -666,11 +716,12 @@ export default function Editor() {
         <span>Class: {getClass(paper.classId)?.name || '-'}</span>
         {paper.date && <span>Date: {new Date(paper.date).toLocaleDateString()}</span>}
         {paper.duration && <span>Duration: {paper.duration} min</span>}
-        <span>Marks: {totalMarks} / {paper.maxMarks || totalMarks}</span>
+        <span>Total Marks: {totalMarks}</span>
       </div>
       {paper.instructions && (
         <div className="paper-instructions">
-          <strong>Instructions:</strong> {paper.instructions}
+          <strong>Instructions:</strong>
+          <span dangerouslySetInnerHTML={{ __html: paper.instructions }} />
         </div>
       )}
     </div>
@@ -725,7 +776,7 @@ export default function Editor() {
             <h2 className="editor-sidebar-title" style={{ margin: 0, fontSize: 22 }}>{paper.title}</h2>
           </div>
           <p className="editor-sidebar-subtitle">
-            {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'} • {totalMarks} / {paper.maxMarks || totalMarks} marks{paper.duration ? ` • ${paper.duration} min` : ''}
+            {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'} • {totalMarks} Marks{paper.duration ? ` • ${paper.duration} min` : ''}
           </p>
         </div>
 
@@ -873,7 +924,7 @@ export default function Editor() {
                 <p>Select a question block from the left panel to get started</p>
               </div>
             </div>
-          ) : pageRanges[0].end === 0 ? (
+          ) : (
             <div className="paper-page last-page">
               {renderPaperHeader()}
               <div className="paper-questions-list">
@@ -891,42 +942,6 @@ export default function Editor() {
                 </DndContext>
               </div>
             </div>
-          ) : (
-            pageRanges.map((range, pageIdx) => {
-              const pageIds = paperQuestionsList.slice(range.start, range.end).map(pq => pq.id);
-              return (
-                <div key={pageIdx} className={`paper-page${pageIdx === pageRanges.length - 1 ? ' last-page' : ''}`}>
-                  {pageIdx === 0 ? (
-                    renderPaperHeader()
-                  ) : (
-                    <div style={{
-                      textAlign: 'right',
-                      fontSize: 11,
-                      color: '#888',
-                      marginBottom: 16,
-                      paddingBottom: 8,
-                      borderBottom: '1px solid #ccc',
-                    }}>
-                      {paper.qpCode} • Continued...
-                    </div>
-                  )}
-                  <div className="paper-questions-list">
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <SortableContext
-                        items={pageIds}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {renderQuestionRange(range.start, range.end)}
-                      </SortableContext>
-                    </DndContext>
-                  </div>
-                </div>
-              );
-            })
           )}
           <div className="print-footer">Created using PaperForm</div>
           <div className="print-spacer" />
@@ -1030,33 +1045,23 @@ export default function Editor() {
                   />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div className="property-field" style={{ flex: 1 }}>
-                  <label className="property-label editor-label">Max Marks</label>
-                  <input
-                    type="number"
-                    className="property-input"
-                    value={paper.maxMarks || 0}
-                    onChange={(e) => updateQuestionPaper(paper.id, { maxMarks: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="property-field" style={{ flex: 1 }}>
-                  <label className="property-label editor-label">Duration (min)</label>
-                  <input
-                    type="number"
-                    className="property-input"
-                    value={paper.duration || 0}
-                    onChange={(e) => updateQuestionPaper(paper.id, { duration: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
+              <div className="property-field">
+                <label className="property-label editor-label">Duration (min)</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={paper.duration || 0}
+                  onChange={(e) => updateQuestionPaper(paper.id, { duration: parseInt(e.target.value) || 0 })}
+                />
               </div>
+
               <div className="property-field">
                 <label className="property-label editor-label">Instructions</label>
-                <textarea
-                  className="property-input"
-                  style={{ minHeight: 80, resize: 'vertical' }}
+                <MiniQuill
                   value={paper.instructions || ''}
-                  onChange={(e) => updateQuestionPaper(paper.id, { instructions: e.target.value })}
+                  onChange={(val) => updateQuestionPaper(paper.id, { instructions: val })}
+                  placeholder="Enter instructions..."
+                  style={{ background: 'white', borderRadius: 'var(--radius-md)' }}
                 />
               </div>
             </div>
@@ -1097,19 +1102,18 @@ export default function Editor() {
                 <div className="property-field">
                   <label className="property-label editor-label">Options</label>
                   {draftOptions.map((opt, i) => (
-                    <input
-                      key={i}
-                      type="text"
-                      className="property-input"
-                      placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                      value={opt}
-                      onChange={(e) => {
-                        const newOpts = [...draftOptions];
-                        newOpts[i] = e.target.value;
-                        setDraftOptions(newOpts);
-                      }}
-                      style={{ marginBottom: 6 }}
-                    />
+                    <div key={i} style={{ marginBottom: 12 }}>
+                      <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>Option {String.fromCharCode(65 + i)}</label>
+                      <MiniQuill
+                        value={opt}
+                        onChange={(val) => {
+                          const newOpts = [...draftOptions];
+                          newOpts[i] = val;
+                          setDraftOptions(newOpts);
+                        }}
+                        placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                      />
+                    </div>
                   ))}
                 </div>
               )}

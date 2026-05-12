@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.105.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "katex": "^0.16.45",
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
