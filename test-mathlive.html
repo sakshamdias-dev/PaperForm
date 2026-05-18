@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><body>
+<script src="https://unpkg.com/mathlive@0.109.2/dist/mathlive.min.js"></script>
+<math-field id="mf">x=\frac{1}{2}</math-field>
+<script>
+  setTimeout(() => {
+    const mf = document.getElementById('mf');
+    console.log("value:", mf.value);
+  }, 1000);
+</script>
+</body></html>

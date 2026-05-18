@@ -19,11 +19,26 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
+import { MathfieldElement } from 'mathlive';
 
-// Quill formula module requires katex on window
-(window as any).katex = katex;
+MathfieldElement.fontsDirectory = '/fonts';
+MathfieldElement.soundsDirectory = '/sounds';
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      'math-field': any;
+    }
+  }
+}
+
+declare global {
+  interface Window {
+    MathJax: any;
+  }
+}
+
 import { Rnd } from 'react-rnd';
 import {
   Plus,
@@ -174,6 +189,86 @@ function SortableQuestion({
   );
 }
 
+const CustomToolbar = () => (
+  <div id="toolbar">
+    <span className="ql-formats">
+      <button className="ql-bold" />
+      <button className="ql-italic" />
+      <button className="ql-underline" />
+      <button className="ql-strike" />
+    </span>
+    <span className="ql-formats">
+      <button className="ql-list" value="ordered" />
+      <button className="ql-list" value="bullet" />
+    </span>
+    <span className="ql-formats">
+      <button className="ql-script" value="sub" />
+      <button className="ql-script" value="super" />
+    </span>
+    <span className="ql-formats">
+      <select className="ql-align" />
+      <button className="ql-image">
+        <ImageIcon size={16} />
+      </button>
+      <button className="ql-table">
+        <Table2 size={16} />
+      </button>
+      <button className="ql-math">
+        <span>&sum;</span>
+      </button>
+      <button className="ql-clean" />
+    </span>
+  </div>
+);
+
+const miniToolbar = [
+  ['bold', 'italic', 'underline', 'strike'],
+  [{ 'script': 'sub' }, { 'script': 'super' }],
+  ['math'],
+  ['clean']
+];
+
+function MiniQuill({ value, onChange, placeholder, openMathDialog }: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  openMathDialog: (onInsert: (latex: string) => void) => void;
+}) {
+  const miniRef = useRef<ReactQuill>(null);
+
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: miniToolbar,
+      handlers: {
+        math: () => {
+          if (!miniRef.current) return;
+          const quill = miniRef.current.getEditor();
+          const range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1) };
+          openMathDialog((latex) => {
+            const mathText = `\\(${latex}\\)`;
+            quill.insertText(range.index, mathText, 'user');
+            quill.setSelection(range.index + mathText.length, 0);
+          });
+        }
+      }
+    }
+  }), [openMathDialog]);
+
+  return (
+    <div className="rich-editor-wrapper mini-editor">
+      <ReactQuill
+        ref={miniRef}
+        theme="snow"
+        value={value}
+        onChange={onChange}
+        modules={modules}
+        placeholder={placeholder}
+        style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
+      />
+    </div>
+  );
+}
+
 export default function Editor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -217,9 +312,23 @@ export default function Editor() {
   const [tableRows, setTableRows] = useState(2);
   const [tableCols, setTableCols] = useState(2);
 
-  const insertTable = () => {
+  const [showMathDialog, setShowMathDialog] = useState(false);
+  const mathDialogCallbackRef = useRef<((latex: string) => void) | null>(null);
+  const mathFieldRef = useRef<any>(null);
+
+  const openMathDialog = useCallback((onInsert: (latex: string) => void) => {
+    mathDialogCallbackRef.current = onInsert;
+    setShowMathDialog(true);
+    setTimeout(() => {
+      if (mathFieldRef.current) {
+        mathFieldRef.current.focus();
+      }
+    }, 100);
+  }, []);
+
+  const insertTable = useCallback(() => {
     setShowTableDialog(true);
-  };
+  }, []);
 
   const confirmTableInsert = () => {
     if (quillRef.current && tableRows > 0 && tableCols > 0) {
@@ -234,105 +343,34 @@ export default function Editor() {
     setShowTableDialog(false);
   };
 
-  const CustomToolbar = () => (
-    <div id="toolbar">
-      <span className="ql-formats">
-        <button className="ql-bold" />
-        <button className="ql-italic" />
-        <button className="ql-underline" />
-        <button className="ql-strike" />
-      </span>
-      <span className="ql-formats">
-        <button className="ql-list" value="ordered" />
-        <button className="ql-list" value="bullet" />
-      </span>
-      <span className="ql-formats">
-        <button className="ql-script" value="sub" />
-        <button className="ql-script" value="super" />
-      </span>
-      <span className="ql-formats">
-        <select className="ql-align" />
-        <button className="ql-image">
-          <ImageIcon size={16} />
-        </button>
-        <button className="ql-table">
-          <Table2 size={16} />
-        </button>
-        <button className="ql-formula" />
-        <button className="ql-clean" />
-      </span>
-    </div>
-  );
-
-  // Custom formula handler: prompts for LaTeX and inserts inline (no Quill popup)
+  // Custom formula handler: opens MathLive visual editor
   const handleFormula = useCallback(() => {
-    if (!quillRef.current) return;
-    const quill = quillRef.current.getEditor();
-    const latex = prompt('Enter LaTeX expression (e.g. \\frac{x^2+1}{x^2-1}):');
-    if (latex) {
-      const range = quill.getSelection(true);
-      quill.insertEmbed(range.index, 'formula', latex, 'user');
-      quill.setSelection(range.index + 1, 0);
+    if (!quillRef.current) {
+      console.log('handleFormula: quillRef.current is null');
+      return;
     }
-  }, []);
+    const quill = quillRef.current.getEditor();
+    const range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1) };
+    console.log('handleFormula: range', range);
+    openMathDialog((latex) => {
+      console.log('handleFormula callback: latex', latex);
+      const mathText = `\\(${latex}\\)`;
+      console.log('handleFormula callback: mathText', mathText);
+      quill.insertText(range.index, mathText, 'user');
+      quill.setSelection(range.index + mathText.length, 0);
+    });
+  }, [openMathDialog]);
 
-  const modules = {
+  const modules = useMemo(() => ({
     toolbar: {
       container: "#toolbar",
       handlers: {
         table: insertTable,
-        formula: handleFormula,
+        math: handleFormula,
       }
     },
     table: true
-  };
-
-  // Modules for the mini editors (options, instructions)
-  const miniToolbar = useMemo(() => [
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'script': 'sub' }, { 'script': 'super' }],
-    ['formula'],
-    ['clean']
-  ], []);
-
-  // Wrapper to override formula handler in mini Quill editors
-  const MiniQuill = useCallback(({ value, onChange, placeholder, style }: {
-    value: string;
-    onChange: (val: string) => void;
-    placeholder?: string;
-    style?: React.CSSProperties;
-  }) => {
-    const miniRef = useRef<ReactQuill>(null);
-
-    useEffect(() => {
-      if (miniRef.current) {
-        const quill = miniRef.current.getEditor();
-        const toolbar = quill.getModule('toolbar') as any;
-        if (toolbar) {
-          toolbar.addHandler('formula', () => {
-            const latex = prompt('Enter LaTeX expression (e.g. \\frac{a}{b}):');
-            if (latex) {
-              const range = quill.getSelection(true);
-              quill.insertEmbed(range.index, 'formula', latex, 'user');
-              quill.setSelection(range.index + 1, 0);
-            }
-          });
-        }
-      }
-    }, []);
-
-    return (
-      <ReactQuill
-        ref={miniRef}
-        theme="snow"
-        value={value}
-        onChange={onChange}
-        modules={{ toolbar: miniToolbar }}
-        placeholder={placeholder}
-        style={style}
-      />
-    );
-  }, [miniToolbar]);
+  }), [insertTable, handleFormula]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -353,20 +391,31 @@ export default function Editor() {
     return paperQuestions.get(id || '') || [];
   }, [paperQuestions, id]);
 
-  // Render KaTeX formulas in the paper preview
+  // Render MathJax formulas in the paper preview and property panel
   useEffect(() => {
-    if (!paperRef.current) return;
-    const formulas = paperRef.current.querySelectorAll('.ql-formula');
-    formulas.forEach((el) => {
-      const latex = el.getAttribute('data-value');
-      if (latex && !el.querySelector('.katex')) {
-        try {
-          katex.render(latex, el as HTMLElement, { throwOnError: false, displayMode: false });
-        } catch {
-          // leave as-is if rendering fails
+    // Dynamically load MathJax if it's not already loaded
+    if (!window.MathJax) {
+      window.MathJax = {
+        tex: {
+          inlineMath: [['\\(', '\\)']],
+          displayMath: [['$$', '$$']],
+        },
+        svg: {
+          fontCache: 'global'
+        },
+        options: {
+          ignoreHtmlClass: 'ql-editor',
+          processHtmlClass: 'tex2jax_process'
         }
-      }
-    });
+      };
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+      script.async = true;
+      document.head.appendChild(script);
+    } else if (window.MathJax.typesetPromise) {
+      // If MathJax is already loaded, re-render the math on the page
+      window.MathJax.typesetPromise().catch((err: any) => console.log('MathJax error:', err));
+    }
   });
 
 
@@ -689,7 +738,7 @@ export default function Editor() {
         position={paper.headerConfig?.barcodePos || { x: 550, y: 20 }}
         onDragStop={(_e, d) => { void handleUpdateHeaderConfig({ barcodePos: { x: d.x, y: d.y } }); }}
         bounds="parent"
-        disableResizing
+        enableResizing={false}
         className="no-print-handles"
       >
         <div className="barcode-wrapper">
@@ -761,6 +810,53 @@ export default function Editor() {
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setShowTableDialog(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={confirmTableInsert}>Insert Table</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MathLive Equation Dialog */}
+      {showMathDialog && (
+        <div className="modal-overlay" onClick={() => setShowMathDialog(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Insert Math Formula</h2>
+            </div>
+            <div className="modal-content">
+              <div className="property-field">
+                <label className="property-label">Visual Editor (MathLive)</label>
+                <math-field 
+                  ref={mathFieldRef}
+                  math-virtual-keyboard-policy="manual"
+                  style={{ 
+                    fontSize: '24px', 
+                    padding: '12px', 
+                    border: '1px solid var(--border)', 
+                    borderRadius: 'var(--radius-md)', 
+                    width: '100%',
+                    backgroundColor: 'white',
+                    color: 'black',
+                    minHeight: '80px'
+                  }}
+                />
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+                  Click inside the field to type or use the virtual keyboard. You can also paste LaTeX.
+                </p>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowMathDialog(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => {
+                console.log('Insert Formula button clicked', {
+                  callback: !!mathDialogCallbackRef.current,
+                  mathFieldRef: !!mathFieldRef.current,
+                  value: mathFieldRef.current?.value
+                });
+                if (mathDialogCallbackRef.current && mathFieldRef.current) {
+                   mathDialogCallbackRef.current(mathFieldRef.current.value);
+                }
+                setShowMathDialog(false);
+              }}>Insert Formula</button>
             </div>
           </div>
         </div>
@@ -1061,7 +1157,7 @@ export default function Editor() {
                   value={paper.instructions || ''}
                   onChange={(val) => updateQuestionPaper(paper.id, { instructions: val })}
                   placeholder="Enter instructions..."
-                  style={{ background: 'white', borderRadius: 'var(--radius-md)' }}
+                  openMathDialog={openMathDialog}
                 />
               </div>
             </div>
@@ -1112,6 +1208,7 @@ export default function Editor() {
                           setDraftOptions(newOpts);
                         }}
                         placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                        openMathDialog={openMathDialog}
                       />
                     </div>
                   ))}
@@ -1205,18 +1302,7 @@ export default function Editor() {
             <>
               <div className="property-field">
                 <label className="property-label editor-label">Question Content</label>
-                <div className="rich-editor-wrapper">
-                  <CustomToolbar />
-                  <ReactQuill
-                    ref={quillRef}
-                    theme="snow"
-                    value={draftContent}
-                    onChange={(content) => setDraftContent(content || '')}
-                    placeholder="Enter your question..."
-                    modules={modules}
-                    style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
-                  />
-                </div>
+                <div className="question-content-preview" dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Section</label>
@@ -1240,10 +1326,6 @@ export default function Editor() {
                   onChange={(e) => handleUpdatePQ(selectedPQ.id, selectedPQ.section, parseInt(e.target.value) || 1)}
                   min={1}
                 />
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Question Content</label>
-                <div className="question-content-preview" dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
               </div>
               <button
                 className="btn btn-primary"

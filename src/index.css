@@ -645,7 +645,7 @@ textarea::placeholder {
 .editor-canvas {
   flex: 1;
   background: #E8E8EC;
-  padding: 32px;
+  padding: 32px 32px 0 32px;
   overflow-y: auto;
   display: flex;
   justify-content: center;
@@ -656,9 +656,11 @@ textarea::placeholder {
   flex-direction: column;
   align-items: center;
   gap: 28px;
-  padding: 32px 0;
+  padding: 32px 0 0 0;
   width: 100%;
   max-width: 820px;
+  min-height: 100%;
+  flex: 1 0 auto;
 }
 
 .paper-page {
@@ -670,12 +672,11 @@ textarea::placeholder {
   box-shadow: var(--shadow-lg);
   padding: 40px 50px 120px;
   position: relative;
-  border-radius: 4px;
+  border-radius: 4px 4px 0 0;
   overflow: visible;
   transition: all 0.3s ease;
+  flex: 1 0 auto;
 }
-
-
 
 .paper-header {
   text-align: center;
@@ -1675,7 +1676,7 @@ textarea::placeholder {
 .rendered-question-item .section-divider {
   margin: -8px -12px 12px;
   padding: 2px 10px 0px;
-  background: rgba(0,0,0,0.02);
+  background: rgba(0, 0, 0, 0.02);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
@@ -1690,6 +1691,7 @@ textarea::placeholder {
     border: none !important;
     background: none !important;
   }
+
   .rendered-question-item .section-divider {
     margin: 0 0 20px;
     padding: 0 0 8px;
@@ -2060,7 +2062,11 @@ textarea::placeholder {
   font-size: 12px;
 }
 
-/* Rich Text Editor */
+/* Rich Text Editor & MathLive */
+math-field::part(virtual-keyboard-toggle) {
+  display: none !important;
+}
+
 .rich-editor-wrapper {
   margin-bottom: 12px;
 }
@@ -2098,9 +2104,14 @@ textarea::placeholder {
   font-size: 14px !important;
 }
 
-.rich-editor-wrapper .ql-editor {
+.rich-editor-wrapper:not(.mini-editor) .ql-editor {
   min-height: 120px !important;
   padding: 12px 14px !important;
+}
+
+.rich-editor-wrapper.mini-editor .ql-editor {
+  min-height: 60px !important;
+  padding: 8px 12px !important;
 }
 
 .rich-editor-wrapper .ql-editor.ql-blank::before {
@@ -2154,6 +2165,22 @@ textarea::placeholder {
   font-weight: 700;
   background: #f5f5f5;
   text-align: left;
+}
+
+/* Property Panel Question Preview Overrides */
+.property-panel .question-content-preview {
+  background: var(--primary-dark);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.property-panel .question-content-preview table td,
+.property-panel .question-content-preview table th {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.property-panel .question-content-preview table th {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .clean-question .q-text p {
@@ -2294,15 +2321,15 @@ textarea::placeholder {
     display: none !important;
   }
 
-.marks-inline {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+  .marks-inline {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 
-.marks-text {
+  .marks-text {
     font-size: 10px !important;
     color: var(--text-secondary) !important;
   }
@@ -2371,9 +2398,9 @@ textarea::placeholder {
     font-size: 11px !important;
   }
 
-.print-spacer {
-  display: none;
-}
+  .print-spacer {
+    display: none;
+  }
 
   .print-footer {
     display: block !important;
@@ -2676,6 +2703,7 @@ textarea::placeholder {
   .no-print-handles {
     display: none !important;
   }
+
   .barcode-print-only,
   .logo-print-only {
     display: block !important;
@@ -2684,10 +2712,10 @@ textarea::placeholder {
 
 /* Hide handles during print */
 @media print {
-  .no-print-handles > div:not(:first-child) {
+  .no-print-handles>div:not(:first-child) {
     display: none !important;
   }
-  
+
   .paper-header {
     border-bottom: 2px solid #000 !important;
   }
@@ -2748,6 +2776,7 @@ textarea::placeholder {
   .paper-header {
     min-height: auto !important;
   }
+
   .no-print-handles {
     position: relative !important;
     transform: none !important;
@@ -2860,7 +2889,7 @@ textarea::placeholder {
 }
 
 #toolbar button:hover {
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.05);
   color: var(--primary);
 }
 
