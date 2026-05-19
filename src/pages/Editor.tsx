@@ -55,6 +55,7 @@ import {
   Pencil,
   Image as ImageIcon,
   Table2,
+  Keyboard,
 } from 'lucide-react';
 import { useStore } from '../store';
 import type { Question, PaperQuestion, QuestionType, PaperSection, Difficulty } from '../types';
@@ -819,8 +820,25 @@ export default function Editor() {
       {showMathDialog && (
         <div className="modal-overlay" onClick={() => setShowMathDialog(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700 }}>
-            <div className="modal-header">
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 className="modal-title">Insert Math Formula</h2>
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '13px' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.mathVirtualKeyboard) {
+                    if (window.mathVirtualKeyboard.visible) {
+                      window.mathVirtualKeyboard.hide();
+                    } else {
+                      window.mathVirtualKeyboard.show();
+                    }
+                  }
+                }}
+                title="Toggle Virtual Keyboard"
+              >
+                <Keyboard size={14} /> Keyboard
+              </button>
             </div>
             <div className="modal-content">
               <div className="property-field">

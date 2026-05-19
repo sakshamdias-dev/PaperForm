@@ -2957,3 +2957,24 @@ math-field::part(virtual-keyboard-toggle) {
   color: #ef4444 !important;
   background: rgba(239, 68, 68, 0.1);
 }
+/* MathLive z-index fixes */
+math-virtual-keyboard {
+  z-index: 9999 !important;
+}
+
+.ML__keyboard {
+  z-index: 9999 !important;
+}
+
+.ML__suggestion-popover,
+[part="suggestion-popover"],
+.ML__tooltip-container .ML__tooltip-content,
+#mathlive-suggestion-popover,
+#mathlive-environment-popover {
+  z-index: 99999 !important;
+}
+
+:root {
+  --suggestion-zindex: 99999;
+  --keyboard-zindex: 99999;
+}
