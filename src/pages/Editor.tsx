@@ -190,8 +190,8 @@ function SortableQuestion({
   );
 }
 
-const CustomToolbar = () => (
-  <div id="toolbar">
+const CustomToolbar = ({ id = "toolbar" }: { id?: string }) => (
+  <div id={id}>
     <span className="ql-formats">
       <button className="ql-bold" />
       <button className="ql-italic" />
@@ -228,6 +228,103 @@ const miniToolbar = [
   ['math'],
   ['clean']
 ];
+
+function FullQuill({ value, onChange, placeholder, openMathDialog, toolbarId = "toolbar" }: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  openMathDialog: (onInsert: (latex: string) => void) => void;
+  toolbarId?: string;
+}) {
+  const quillRef = useRef<ReactQuill>(null);
+  const [showTableDialog, setShowTableDialog] = useState(false);
+  const [tableRows, setTableRows] = useState(2);
+  const [tableCols, setTableCols] = useState(2);
+
+  const confirmTableInsert = () => {
+    if (quillRef.current && tableRows > 0 && tableCols > 0) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      const tableModule = quill.getModule('table') as any;
+      if (tableModule) {
+        quill.insertText(range?.index || quill.getLength() - 1, '\n');
+        tableModule.insertTable(tableRows + 1, tableCols);
+      }
+    }
+    setShowTableDialog(false);
+  };
+
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: `#${toolbarId}`,
+      handlers: {
+        table: () => setShowTableDialog(true),
+        math: () => {
+          if (!quillRef.current) return;
+          const quill = quillRef.current.getEditor();
+          const range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1) };
+          openMathDialog((latex) => {
+            const mathText = `\\(${latex}\\)`;
+            quill.insertText(range.index, mathText, 'user');
+            quill.setSelection(range.index + mathText.length, 0);
+          });
+        }
+      }
+    },
+    table: true
+  }), [toolbarId, openMathDialog]);
+
+  return (
+    <div className="rich-editor-wrapper">
+      <CustomToolbar id={toolbarId} />
+      <ReactQuill
+        ref={quillRef}
+        theme="snow"
+        value={value}
+        onChange={onChange}
+        modules={modules}
+        placeholder={placeholder}
+        style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
+      />
+      
+      {showTableDialog && (
+        <div className="modal-overlay" onClick={() => setShowTableDialog(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Insert Table</h2>
+            </div>
+            <div className="modal-content">
+              <div className="property-field">
+                <label className="property-label">Rows</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={tableRows}
+                  onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
+                  min={1}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Columns</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={tableCols}
+                  onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
+                  min={1}
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowTableDialog(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={confirmTableInsert}>Insert Table</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MiniQuill({ value, onChange, placeholder, openMathDialog }: {
   value: string;
@@ -308,10 +405,6 @@ export default function Editor() {
   const [draftDifficulty, setDraftDifficulty] = useState<Difficulty>('medium');
   const [draftTypeHeader, setDraftTypeHeader] = useState('');
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
-  const quillRef = useRef<ReactQuill>(null);
-  const [showTableDialog, setShowTableDialog] = useState(false);
-  const [tableRows, setTableRows] = useState(2);
-  const [tableCols, setTableCols] = useState(2);
 
   const [showMathDialog, setShowMathDialog] = useState(false);
   const mathDialogCallbackRef = useRef<((latex: string) => void) | null>(null);
@@ -326,52 +419,6 @@ export default function Editor() {
       }
     }, 100);
   }, []);
-
-  const insertTable = useCallback(() => {
-    setShowTableDialog(true);
-  }, []);
-
-  const confirmTableInsert = () => {
-    if (quillRef.current && tableRows > 0 && tableCols > 0) {
-      const quill = quillRef.current.getEditor();
-      const range = quill.getSelection();
-      const tableModule = quill.getModule('table') as any;
-      if (tableModule) {
-        quill.insertText(range?.index || quill.getLength() - 1, '\n');
-        tableModule.insertTable(tableRows + 1, tableCols);
-      }
-    }
-    setShowTableDialog(false);
-  };
-
-  // Custom formula handler: opens MathLive visual editor
-  const handleFormula = useCallback(() => {
-    if (!quillRef.current) {
-      console.log('handleFormula: quillRef.current is null');
-      return;
-    }
-    const quill = quillRef.current.getEditor();
-    const range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1) };
-    console.log('handleFormula: range', range);
-    openMathDialog((latex) => {
-      console.log('handleFormula callback: latex', latex);
-      const mathText = `\\(${latex}\\)`;
-      console.log('handleFormula callback: mathText', mathText);
-      quill.insertText(range.index, mathText, 'user');
-      quill.setSelection(range.index + mathText.length, 0);
-    });
-  }, [openMathDialog]);
-
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: "#toolbar",
-      handlers: {
-        table: insertTable,
-        math: handleFormula,
-      }
-    },
-    table: true
-  }), [insertTable, handleFormula]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -400,6 +447,9 @@ export default function Editor() {
         tex: {
           inlineMath: [['\\(', '\\)']],
           displayMath: [['$$', '$$']],
+          macros: {
+            degree: '^\\circ'
+          }
         },
         svg: {
           fontCache: 'global'
@@ -779,42 +829,6 @@ export default function Editor() {
 
   return (
     <div className="editor-layout">
-      {/* Table Insertion Dialog */}
-      {showTableDialog && (
-        <div className="modal-overlay" onClick={() => setShowTableDialog(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Insert Table</h2>
-            </div>
-            <div className="modal-content">
-              <div className="property-field">
-                <label className="property-label">Rows</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={tableRows}
-                  onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
-                  min={1}
-                />
-              </div>
-              <div className="property-field">
-                <label className="property-label">Columns</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={tableCols}
-                  onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
-                  min={1}
-                />
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowTableDialog(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={confirmTableInsert}>Insert Table</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MathLive Equation Dialog */}
       {showMathDialog && (
@@ -990,6 +1004,7 @@ export default function Editor() {
           {/* Hidden measurement container */}
           <div
             ref={measureRef}
+            className="measurement-container"
             style={{
               position: 'absolute', left: -9999, top: 0,
               width: '794px', padding: '20px 40px',
@@ -1171,11 +1186,12 @@ export default function Editor() {
 
               <div className="property-field">
                 <label className="property-label editor-label">Instructions</label>
-                <MiniQuill
+                <FullQuill
                   value={paper.instructions || ''}
                   onChange={(val) => updateQuestionPaper(paper.id, { instructions: val })}
                   placeholder="Enter instructions..."
                   openMathDialog={openMathDialog}
+                  toolbarId="instructions-toolbar"
                 />
               </div>
             </div>
@@ -1188,18 +1204,13 @@ export default function Editor() {
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Question Content</label>
-                <div className="rich-editor-wrapper">
-                  <CustomToolbar />
-                  <ReactQuill
-                    ref={quillRef}
-                    theme="snow"
-                    value={draftContent}
-                    onChange={(content) => setDraftContent(content || '')}
-                    placeholder="Enter your question..."
-                    modules={modules}
-                    style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
-                  />
-                </div>
+                <FullQuill
+                  value={draftContent}
+                  onChange={(content) => setDraftContent(content)}
+                  placeholder="Enter your question..."
+                  openMathDialog={openMathDialog}
+                  toolbarId="question-toolbar"
+                />
               </div>
               <div className="property-field">
                 <label className="property-label editor-label">Section Header Label</label>

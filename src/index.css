@@ -2078,6 +2078,10 @@ math-field::part(virtual-keyboard-toggle) {
   border-bottom: none !important;
 }
 
+.rich-editor-wrapper .ql-toolbar button {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
 .rich-editor-wrapper .ql-toolbar .ql-stroke {
   stroke: rgba(255, 255, 255, 0.7) !important;
 }
@@ -2094,6 +2098,11 @@ math-field::part(virtual-keyboard-toggle) {
 .rich-editor-wrapper .ql-toolbar button:hover .ql-fill,
 .rich-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
   fill: var(--accent) !important;
+}
+
+.rich-editor-wrapper .ql-toolbar button:hover,
+.rich-editor-wrapper .ql-toolbar button.ql-active {
+  color: var(--accent) !important;
 }
 
 .rich-editor-wrapper .ql-container {
@@ -2402,6 +2411,10 @@ math-field::part(virtual-keyboard-toggle) {
     display: none;
   }
 
+  .measurement-container {
+    display: none !important;
+  }
+
   .print-footer {
     display: block !important;
     position: fixed !important;
@@ -2416,12 +2429,17 @@ math-field::part(virtual-keyboard-toggle) {
     z-index: 100 !important;
     border-top: 1px solid #000 !important;
     padding: 16px 0 8px !important;
+    page-break-before: avoid !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 }
 
 .print-footer {
+  display: none;
+}
+
+.print-spacer {
   display: none;
 }
 
