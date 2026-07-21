@@ -286,7 +286,7 @@ function FullQuill({ value, onChange, placeholder, openMathDialog, toolbarId = "
         placeholder={placeholder}
         style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
       />
-      
+
       {showTableDialog && (
         <div className="modal-overlay" onClick={() => setShowTableDialog(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
@@ -399,7 +399,7 @@ export default function Editor() {
 
   const [draftType, setDraftType] = useState<QuestionType | null>(null);
   const [draftContent, setDraftContent] = useState('');
-  const [draftOptions, setDraftOptions] = useState(['', '', '', '']);
+  const [draftOptions, setDraftOptions] = useState<string[]>(['', '', '', '']);
   const [draftSection, setDraftSection] = useState<PaperSection>('A');
   const [draftMarks, setDraftMarks] = useState(1);
   const [draftDifficulty, setDraftDifficulty] = useState<Difficulty>('medium');
@@ -407,8 +407,20 @@ export default function Editor() {
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   const [showMathDialog, setShowMathDialog] = useState(false);
+  const [mathKeyboardVisible, setMathKeyboardVisible] = useState(false);
   const mathDialogCallbackRef = useRef<((latex: string) => void) | null>(null);
   const mathFieldRef = useRef<any>(null);
+
+  // Track MathLive virtual keyboard visibility
+  useEffect(() => {
+    const kbd = window.mathVirtualKeyboard;
+    if (!kbd) return;
+    const handler = () => {
+      setMathKeyboardVisible(kbd.visible);
+    };
+    kbd.addEventListener('geometrychange', handler);
+    return () => kbd.removeEventListener('geometrychange', handler);
+  }, []);
 
   const openMathDialog = useCallback((onInsert: (latex: string) => void) => {
     mathDialogCallbackRef.current = onInsert;
@@ -485,6 +497,14 @@ export default function Editor() {
       const newList = arrayMove(paperQuestionsList, oldIndex, newIndex);
       await reorderPaperQuestions(id, newList);
     }
+  };
+
+  const handleAddOption = () => {
+    setDraftOptions(prev => [...prev, '']);
+  };
+
+  const handleRemoveOption = (index: number) => {
+    setDraftOptions(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSelectBlockType = (type: QuestionType) => {
@@ -596,7 +616,7 @@ export default function Editor() {
     setDraftType(q.questionType);
     setDraftContent(q.content);
     const opts = q.options || [];
-    setDraftOptions([opts[0] || '', opts[1] || '', opts[2] || '', opts[3] || '']);
+    setDraftOptions(opts.length > 0 ? [...opts] : ['', '', '', '']);
     setDraftSection(pq.section);
     setDraftMarks(pq.marks);
     setDraftDifficulty(q.difficulty || 'medium');
@@ -808,7 +828,7 @@ export default function Editor() {
         <div className="barcode-text">QP Code: {paper.qpCode}</div>
       </div>
 
-      <h1 className="paper-school-name">{user?.schoolName || 'School Name'}</h1>
+      <h1 className="paper-school-name">{user?.schoolName || 'Institution Name'}</h1>
       <h2 className="paper-exam-title">{paper.title}</h2>
       <div className="paper-info">
         <span>Course: {getCourse(paper.courseId)?.name || '-'}</span>
@@ -832,12 +852,15 @@ export default function Editor() {
 
       {/* MathLive Equation Dialog */}
       {showMathDialog && (
-        <div className="modal-overlay" onClick={() => setShowMathDialog(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700 }}>
+        <div className="modal-overlay" style={mathKeyboardVisible ? { alignItems: 'flex-start', paddingTop: '3vh' } : {}} onClick={() => {
+          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide();
+          setShowMathDialog(false);
+        }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700, zIndex: 3001 }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 className="modal-title">Insert Math Formula</h2>
-              <button 
-                className="btn btn-secondary" 
+              <button
+                className="btn btn-secondary"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '13px' }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -851,20 +874,20 @@ export default function Editor() {
                 }}
                 title="Toggle Virtual Keyboard"
               >
-                <Keyboard size={14} /> Keyboard
+                <Keyboard size={14} /> {mathKeyboardVisible ? 'Hide Keyboard' : 'Keyboard'}
               </button>
             </div>
             <div className="modal-content">
               <div className="property-field">
                 <label className="property-label">Visual Editor (MathLive)</label>
-                <math-field 
+                <math-field
                   ref={mathFieldRef}
                   math-virtual-keyboard-policy="manual"
-                  style={{ 
-                    fontSize: '24px', 
-                    padding: '12px', 
-                    border: '1px solid var(--border)', 
-                    borderRadius: 'var(--radius-md)', 
+                  style={{
+                    fontSize: '24px',
+                    padding: '12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
                     width: '100%',
                     backgroundColor: 'white',
                     color: 'black',
@@ -877,7 +900,10 @@ export default function Editor() {
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowMathDialog(false)}>Cancel</button>
+              <button className="btn btn-secondary" onClick={() => {
+                if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide();
+                setShowMathDialog(false);
+              }}>Cancel</button>
               <button className="btn btn-primary" onClick={() => {
                 console.log('Insert Formula button clicked', {
                   callback: !!mathDialogCallbackRef.current,
@@ -885,8 +911,9 @@ export default function Editor() {
                   value: mathFieldRef.current?.value
                 });
                 if (mathDialogCallbackRef.current && mathFieldRef.current) {
-                   mathDialogCallbackRef.current(mathFieldRef.current.value);
+                  mathDialogCallbackRef.current(mathFieldRef.current.value);
                 }
+                if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide();
                 setShowMathDialog(false);
               }}>Insert Formula</button>
             </div>
@@ -1098,7 +1125,7 @@ export default function Editor() {
                 />
               </div>
               <div className="property-field">
-                <label className="property-label editor-label">School/College Name</label>
+                <label className="property-label editor-label">Institution Name</label>
                 <input
                   type="text"
                   className="property-input"
@@ -1106,11 +1133,11 @@ export default function Editor() {
                   onChange={(e) => {
                     if (user) useStore.getState().setUser({ ...user, schoolName: e.target.value });
                   }}
-                  placeholder="Enter school name..."
+                  placeholder="Enter Institution name..."
                 />
               </div>
               <div className="property-field">
-                <label className="property-label editor-label">School/College Logo</label>
+                <label className="property-label editor-label">Institution Logo</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -1228,8 +1255,20 @@ export default function Editor() {
                   <label className="property-label editor-label">Options</label>
                   {draftOptions.map((opt, i) => (
                     <div key={i} style={{ marginBottom: 12 }}>
-                      <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>Option {String.fromCharCode(65 + i)}</label>
-                      <MiniQuill
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <label style={{ fontSize: 12, color: 'white', display: 'block' }}>Option {String.fromCharCode(65 + i)}</label>
+                        {draftOptions.length > 2 && (
+                          <button
+                            className="hover-action-btn danger"
+                            onClick={() => handleRemoveOption(i)}
+                            title={`Remove Option ${String.fromCharCode(65 + i)}`}
+                            style={{ padding: '2px 4px' }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                      <FullQuill
                         value={opt}
                         onChange={(val) => {
                           const newOpts = [...draftOptions];
@@ -1238,9 +1277,18 @@ export default function Editor() {
                         }}
                         placeholder={`Option ${String.fromCharCode(65 + i)}`}
                         openMathDialog={openMathDialog}
+                        toolbarId={`option-toolbar-${i}`}
                       />
                     </div>
                   ))}
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleAddOption}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}
+                  >
+                    <Plus size={14} />
+                    Add Option
+                  </button>
                 </div>
               )}
               {draftType === 'truefalse' && (

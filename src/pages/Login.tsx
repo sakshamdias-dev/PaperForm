@@ -59,13 +59,13 @@ export default function Login() {
             {isSignUp ? 'Create your account' : 'Sign in to continue'}
           </p>
         </div>
-        
+
         {error && (
-          <div style={{ 
-            padding: '12px 16px', 
-            background: '#FEE2E2', 
-            color: '#DC2626', 
-            borderRadius: '8px', 
+          <div style={{
+            padding: '12px 16px',
+            background: '#FEE2E2',
+            color: '#DC2626',
+            borderRadius: '8px',
             marginBottom: '16px',
             fontSize: '14px'
           }}>
@@ -88,11 +88,11 @@ export default function Login() {
                 />
               </div>
               <div className="property-field">
-                <label className="property-label">School Name (Optional)</label>
+                <label className="property-label">Institution Name (Optional)</label>
                 <input
                   type="text"
                   className="property-input"
-                  placeholder="Enter your school name"
+                  placeholder="Enter your Institution name"
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
                 />
@@ -122,16 +122,16 @@ export default function Login() {
               minLength={6}
             />
           </div>
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
+          <button
+            type="submit"
+            className="btn btn-primary"
             style={{ width: '100%', marginTop: 8 }}
             disabled={loading}
           >
             {loading ? <Loader2 className="animate-spin" size={18} /> : (isSignUp ? 'Sign Up' : 'Sign In')}
           </button>
         </form>
-        
+
         <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: 'var(--text-secondary)' }}>
           {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button

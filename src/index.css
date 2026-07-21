@@ -2124,12 +2124,12 @@ math-field::part(virtual-keyboard-toggle) {
 }
 
 .rich-editor-wrapper .ql-editor.ql-blank::before {
-  color: rgba(255, 255, 255, 0.4) !important;
+  color: rgba(0, 0, 0, 0.35) !important;
   font-style: normal !important;
 }
 
 /* Table button icon */
-.rich-editor-wrapper .ql-table::before {
+/* .rich-editor-wrapper .ql-table::before {
   content: "" !important;
   display: inline-block !important;
   width: 18px !important;
@@ -2138,7 +2138,7 @@ math-field::part(virtual-keyboard-toggle) {
   background-repeat: no-repeat !important;
   background-position: center !important;
   background-size: contain !important;
-}
+} */
 
 /* Question Content Preview - render HTML */
 .question-content-preview {
@@ -2975,6 +2975,7 @@ math-field::part(virtual-keyboard-toggle) {
   color: #ef4444 !important;
   background: rgba(239, 68, 68, 0.1);
 }
+
 /* MathLive z-index fixes */
 math-virtual-keyboard {
   z-index: 9999 !important;
