@@ -222,13 +222,6 @@ const CustomToolbar = ({ id = "toolbar" }: { id?: string }) => (
   </div>
 );
 
-const miniToolbar = [
-  ['bold', 'italic', 'underline', 'strike'],
-  [{ 'script': 'sub' }, { 'script': 'super' }],
-  ['math'],
-  ['clean']
-];
-
 function FullQuill({ value, onChange, placeholder, openMathDialog, toolbarId = "toolbar" }: {
   value: string;
   onChange: (val: string) => void;
@@ -326,46 +319,6 @@ function FullQuill({ value, onChange, placeholder, openMathDialog, toolbarId = "
   );
 }
 
-function MiniQuill({ value, onChange, placeholder, openMathDialog }: {
-  value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
-  openMathDialog: (onInsert: (latex: string) => void) => void;
-}) {
-  const miniRef = useRef<ReactQuill>(null);
-
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: miniToolbar,
-      handlers: {
-        math: () => {
-          if (!miniRef.current) return;
-          const quill = miniRef.current.getEditor();
-          const range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1) };
-          openMathDialog((latex) => {
-            const mathText = `\\(${latex}\\)`;
-            quill.insertText(range.index, mathText, 'user');
-            quill.setSelection(range.index + mathText.length, 0);
-          });
-        }
-      }
-    }
-  }), [openMathDialog]);
-
-  return (
-    <div className="rich-editor-wrapper mini-editor">
-      <ReactQuill
-        ref={miniRef}
-        theme="snow"
-        value={value}
-        onChange={onChange}
-        modules={modules}
-        placeholder={placeholder}
-        style={{ background: 'white', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}
-      />
-    </div>
-  );
-}
 
 export default function Editor() {
   const { id } = useParams<{ id: string }>();
@@ -852,7 +805,7 @@ export default function Editor() {
 
       {/* MathLive Equation Dialog */}
       {showMathDialog && (
-        <div className="modal-overlay" style={mathKeyboardVisible ? { alignItems: 'flex-start', paddingTop: '3vh' } : {}} onClick={() => {
+        <div className="modal-overlay" style={mathKeyboardVisible ? { alignItems: 'flex-start', paddingTop: '8vh' } : {}} onClick={() => {
           if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide();
           setShowMathDialog(false);
         }}>
