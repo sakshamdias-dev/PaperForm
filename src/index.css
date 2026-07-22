@@ -1799,7 +1799,7 @@ textarea::placeholder {
   line-height: 1.7;
   color: var(--text-primary);
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .q-number {
@@ -1812,7 +1812,7 @@ textarea::placeholder {
   line-height: 1.7;
   white-space: normal;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .q-text p {
@@ -1866,7 +1866,7 @@ textarea::placeholder {
 .q-options-horizontal .q-option {
   white-space: normal;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .q-options-grid {
