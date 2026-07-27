@@ -20,6 +20,45 @@ import { CSS } from '@dnd-kit/utilities';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { MathfieldElement } from 'mathlive';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+
+async function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): Promise<string> {
+  const canvas = document.createElement('canvas');
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    throw new Error('No 2d context');
+  }
+
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) throw new Error('Canvas is empty');
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+    }, 'image/jpeg');
+  });
+}
+
 
 MathfieldElement.fontsDirectory = '/fonts';
 MathfieldElement.soundsDirectory = '/sounds';
@@ -89,16 +128,22 @@ interface SortableQuestionProps {
   showTypeHeader?: string;
 }
 
-function getMaxWordsInOptions(options: string[]): number {
-  return Math.max(...options.map(o => stripHtml(o).trim().split(/\s+/).filter(Boolean).length));
-}
-
 function getMcqLayout(options: string[]): string {
   if (options.length === 0) return 'vertical';
-  const maxWords = getMaxWordsInOptions(options);
-  if (maxWords > 5) return 'vertical';
-  if (maxWords > 2) return 'grid';
-  return 'horizontal';
+  
+  const hasLargeOption = options.some(opt => {
+    // If it contains an image or table, it's very big
+    if (opt.includes('<img') || opt.includes('<table')) return true;
+    
+    // Check character length of plain text
+    const textOnly = stripHtml(opt).trim();
+    // 35 characters is a safe threshold for half-width (2x2 grid) padding
+    return textOnly.length > 35;
+  });
+
+  if (hasLargeOption) return 'vertical';
+  
+  return 'grid'; // 2x2 grid is the default
 }
 
 function SortableQuestion({
@@ -134,6 +179,7 @@ function SortableQuestion({
       style={style}
       className={`rendered-question-item ${isDragging ? 'dragging' : ''} ${isSelected ? 'selected' : ''}`}
       onClick={onSelect}
+      data-question-id={question.id}
     >
       {/* Admin overlay - hidden on print */}
       <div className="admin-overlay-left">
@@ -169,7 +215,7 @@ function SortableQuestion({
             {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
               <div className={`q-options q-options-${mcqLayout}`}>
                 {question.options.map((opt, i) => (
-                  <span key={i} className="q-option" style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
+                  <span key={i} className="q-option" data-option-index={i} style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
                     <span style={{ marginRight: '4px' }}>{String.fromCharCode(65 + i)}.</span>
                     <span dangerouslySetInnerHTML={{ __html: opt }} />
                   </span>
@@ -363,6 +409,23 @@ export default function Editor() {
   const [mathKeyboardVisible, setMathKeyboardVisible] = useState(false);
   const mathDialogCallbackRef = useRef<((latex: string) => void) | null>(null);
   const mathFieldRef = useRef<any>(null);
+
+  const [editingImage, setEditingImage] = useState<{
+    src: string;
+    questionId: string;
+    isOption: boolean;
+    optionIndex?: number;
+    originalHtml: string;
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+    imgElement: HTMLImageElement;
+  } | null>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [imageResizeWidth, setImageResizeWidth] = useState<number>(0);
 
   // Track MathLive virtual keyboard visibility
   useEffect(() => {
@@ -701,7 +764,8 @@ export default function Editor() {
       for (let i = globalIndex - 1; i >= 0; i--) {
         const itemPQ = paperQuestionsList[i];
         const itemQ = getQuestion(itemPQ.questionId);
-        if (itemPQ.section !== pq.section || (itemQ?.typeHeader !== q.typeHeader)) {
+        const itemHeader = itemQ?.typeHeader || '';
+        if (itemPQ.section !== pq.section || itemHeader !== currentHeader) {
           break;
         }
         questionNumber++;
@@ -799,6 +863,53 @@ export default function Editor() {
       )}
     </div>
   );
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG' && !target.classList.contains('logo-print-only') && !target.closest('.rnd-handle')) {
+      const qWrapper = target.closest('.rendered-question-item');
+      if (qWrapper) {
+        const questionId = qWrapper.getAttribute('data-question-id');
+        if (questionId) {
+          const qOption = target.closest('.q-option');
+          const isOption = !!qOption;
+          let optionIndex: number | undefined;
+          if (isOption) {
+            optionIndex = parseInt(qOption.getAttribute('data-option-index') || '0', 10);
+          }
+          
+          const q = questions.find(qu => qu.id === questionId);
+          if (q) {
+            const paperContainer = target.closest('.paper-container') as HTMLElement;
+            if (!paperContainer) return;
+
+            const containerRect = paperContainer.getBoundingClientRect();
+            const imgRect = target.getBoundingClientRect();
+            
+            const originalHtml = isOption ? (q.options ? q.options[optionIndex!] : '') : q.content;
+            
+            (target as HTMLImageElement).style.opacity = '0';
+            
+            setEditingImage({
+              src: (target as HTMLImageElement).src,
+              questionId,
+              isOption,
+              optionIndex,
+              originalHtml,
+              width: imgRect.width,
+              height: imgRect.height,
+              top: imgRect.top - containerRect.top,
+              left: imgRect.left - containerRect.left,
+              imgElement: target as HTMLImageElement
+            });
+            setImageResizeWidth(imgRect.width);
+            setCrop(undefined);
+            setCompletedCrop(undefined);
+          }
+        }
+      }
+    }
+  };
 
   return (
     <div className="editor-layout">
@@ -980,7 +1091,7 @@ export default function Editor() {
 
       {/* CENTER - Clean HTML Paper (WYSIWYG) */}
       <div className="editor-canvas">
-        <div className="paper-container" ref={paperRef} id="printable-paper">
+        <div className="paper-container" ref={paperRef} id="printable-paper" onClick={handleCanvasClick}>
           {/* Hidden measurement container */}
           <div
             ref={measureRef}
@@ -1054,6 +1165,91 @@ export default function Editor() {
           )}
           <div className="print-footer">Created using PaperForm</div>
           <div className="print-spacer" />
+          
+          {editingImage && (
+            <div style={{
+              position: 'absolute',
+              top: editingImage.top,
+              left: editingImage.left,
+              zIndex: 1000,
+              background: 'rgba(255,255,255,0.9)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              borderRadius: 4,
+              padding: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8
+            }} onClick={(e) => e.stopPropagation()}>
+              <ReactCrop
+                crop={crop}
+                onChange={(c) => setCrop(c)}
+                onComplete={(c) => setCompletedCrop(c)}
+              >
+                <img 
+                  ref={imgRef}
+                  src={editingImage.src} 
+                  alt="Crop preview" 
+                  style={{ width: imageResizeWidth > 0 ? imageResizeWidth : 'auto', height: 'auto', display: 'block', maxWidth: '100%' }} 
+                />
+              </ReactCrop>
+              
+              <div style={{ display: 'flex', gap: 8, width: '100%', justifyContent: 'center', alignItems: 'center', padding: '4px 8px' }}>
+                <span style={{ fontSize: 12, color: '#666', fontWeight: 600 }}>Width:</span>
+                <input 
+                  type="number" 
+                  style={{ width: 60, padding: 4, border: '1px solid #ccc', borderRadius: 4, fontSize: 12 }}
+                  value={Math.round(imageResizeWidth)} 
+                  onChange={(e) => setImageResizeWidth(Number(e.target.value))} 
+                />
+                <span style={{ fontSize: 12, color: '#666' }}>px</span>
+                
+                <button style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }} onClick={() => {
+                  if (editingImage.imgElement) editingImage.imgElement.style.opacity = '1';
+                  setEditingImage(null);
+                }} title="Cancel">
+                  ✕
+                </button>
+                <button style={{ background: '#10B981', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 4 }} onClick={async () => {
+                  let newSrc = editingImage.src;
+                  if (completedCrop && completedCrop.width > 0 && completedCrop.height > 0 && imgRef.current) {
+                    newSrc = await getCroppedImg(imgRef.current, completedCrop);
+                  }
+                  
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(editingImage.originalHtml, 'text/html');
+                  const imgs = doc.querySelectorAll('img');
+                  imgs.forEach(img => {
+                    if (img.getAttribute('src') === editingImage.src || img.src === editingImage.src) {
+                      img.src = newSrc;
+                      if (imageResizeWidth > 0) {
+                        img.style.width = `${imageResizeWidth}px`;
+                      }
+                    }
+                  });
+                  const newHtml = doc.body.innerHTML;
+                  
+                  if (editingImage.isOption && editingImage.optionIndex !== undefined) {
+                    const q = questions.find(q => q.id === editingImage.questionId);
+                    if (q) {
+                      const newOptions = [...(q.options || [])];
+                      newOptions[editingImage.optionIndex] = newHtml;
+                      await updateQuestion(q.id, { options: newOptions });
+                    }
+                  } else {
+                    await updateQuestion(editingImage.questionId, { content: newHtml });
+                  }
+                  
+                  if (editingImage.imgElement) editingImage.imgElement.style.opacity = '1';
+                  setEditingImage(null);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                }}>
+                  ✓ Apply
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1391,6 +1587,7 @@ export default function Editor() {
           {toastMessage}
         </div>
       )}
+
     </div>
   );
 }

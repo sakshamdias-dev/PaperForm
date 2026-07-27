@@ -654,6 +654,7 @@ textarea::placeholder {
 .paper-container {
   display: flex;
   flex-direction: column;
+  position: relative;
   align-items: center;
   gap: 28px;
   padding: 32px 0 0 0;
@@ -718,6 +719,10 @@ textarea::placeholder {
   font-family: var(--font-serif);
   font-size: 13px;
   text-align: left;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .paper-instructions p {
@@ -1669,8 +1674,8 @@ textarea::placeholder {
   cursor: pointer;
   transition: all 0.2s ease;
   min-width: 0;
-  break-inside: auto !important;
-  page-break-inside: auto !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
 }
 
 .rendered-question-item .section-divider {
@@ -1810,9 +1815,10 @@ textarea::placeholder {
 
 .q-text {
   line-height: 1.7;
-  white-space: normal;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: normal;
+  word-break: break-word;
 }
 
 .q-text p {
@@ -1864,9 +1870,10 @@ textarea::placeholder {
 }
 
 .q-options-horizontal .q-option {
-  white-space: normal;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: normal;
+  word-break: break-word;
 }
 
 .q-options-grid {
@@ -1883,6 +1890,10 @@ textarea::placeholder {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .q-answer-space {
@@ -2350,8 +2361,8 @@ math-field::part(virtual-keyboard-toggle) {
     outline: none !important;
     cursor: default !important;
     position: static !important;
-    break-inside: auto !important;
-    page-break-inside: auto !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .rendered-question-item:hover,
@@ -2784,6 +2795,10 @@ math-field::part(virtual-keyboard-toggle) {
   color: #444;
   text-align: left;
   line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .paper-instructions strong {
