@@ -722,7 +722,7 @@ textarea::placeholder {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .paper-instructions p {
@@ -1818,7 +1818,7 @@ textarea::placeholder {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .q-text p {
@@ -1873,7 +1873,7 @@ textarea::placeholder {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .q-options-grid {
@@ -1893,7 +1893,7 @@ textarea::placeholder {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .q-answer-space {
@@ -2798,7 +2798,7 @@ math-field::part(virtual-keyboard-toggle) {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
 }
 
 .paper-instructions strong {
