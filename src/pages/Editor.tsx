@@ -102,8 +102,6 @@ import type { Question, PaperQuestion, QuestionType, PaperSection, Difficulty } 
 const BLOCK_TYPES: { type: QuestionType; label: string; icon: typeof AlignLeft; description: string; header: string }[] = [
   { type: 'mcq', label: 'Multiple Choice', icon: ListChecks, description: 'Question with options A-D', header: 'Multiple Choice:' },
   { type: 'subjective', label: 'Subjective Question', icon: AlignLeft, description: 'Answer the following', header: 'Answer the following:' },
-  { type: 'fillblank', label: 'Fill in the Blank', icon: NotebookPen, description: 'Complete the sentence', header: 'Fill in the blanks:' },
-  { type: 'truefalse', label: 'True / False', icon: CircleCheck, description: 'Binary choice question', header: 'True or False:' },
 ];
 
 function getTypeHeader(type: QuestionType): string {

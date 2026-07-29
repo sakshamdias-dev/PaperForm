@@ -719,10 +719,7 @@ textarea::placeholder {
   font-family: var(--font-serif);
   font-size: 13px;
   text-align: left;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: normal;
+  white-space: normal;
 }
 
 .paper-instructions p {
@@ -1803,8 +1800,7 @@ textarea::placeholder {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-primary);
-  overflow-wrap: break-word;
-  word-break: normal;
+  overflow: hidden;
 }
 
 .q-number {
@@ -1815,10 +1811,7 @@ textarea::placeholder {
 
 .q-text {
   line-height: 1.7;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: normal;
+  white-space: normal;
 }
 
 .q-text p {
@@ -1870,10 +1863,7 @@ textarea::placeholder {
 }
 
 .q-options-horizontal .q-option {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: normal;
+  white-space: normal;
 }
 
 .q-options-grid {
@@ -1890,10 +1880,7 @@ textarea::placeholder {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-primary);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: normal;
+  white-space: normal;
 }
 
 .q-answer-space {
@@ -2795,10 +2782,7 @@ math-field::part(virtual-keyboard-toggle) {
   color: #444;
   text-align: left;
   line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: normal;
+  white-space: normal;
 }
 
 .paper-instructions strong {
