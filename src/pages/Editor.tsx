@@ -88,8 +88,6 @@ import {
   Check,
   ListChecks,
   AlignLeft,
-  CircleCheck,
-  NotebookPen,
   Search,
   Pencil,
   Image as ImageIcon,
