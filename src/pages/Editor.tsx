@@ -30,7 +30,7 @@ async function getCroppedImg(image: HTMLImageElement, crop: PixelCrop): Promise<
   canvas.width = crop.width;
   canvas.height = crop.height;
   const ctx = canvas.getContext('2d');
-  
+
   if (!ctx) {
     throw new Error('No 2d context');
   }
@@ -93,6 +93,12 @@ import {
   Image as ImageIcon,
   Table2,
   Keyboard,
+  Eye,
+  Settings,
+  X,
+  ChevronUp,
+  ChevronDown,
+  GitFork,
 } from 'lucide-react';
 import { useStore } from '../store';
 import type { Question, PaperQuestion, QuestionType, PaperSection, Difficulty } from '../types';
@@ -120,17 +126,29 @@ interface SortableQuestionProps {
   onSelect: () => void;
   onRemove: () => void;
   onEdit: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onAddSubQuestion?: () => void;
   showSectionHeader?: string;
+  sectionNumber?: number;
+  sectionMarks?: number;
+  canMoveSectionUp?: boolean;
+  canMoveSectionDown?: boolean;
+  onMoveSectionUp?: (section: string) => void;
+  onMoveSectionDown?: (section: string) => void;
+  onAddQuestionToSection?: (section: string) => void;
   showTypeHeader?: string;
 }
 
 function getMcqLayout(options: string[]): string {
   if (options.length === 0) return 'vertical';
-  
+
   const hasLargeOption = options.some(opt => {
     // If it contains an image or table, it's very big
     if (opt.includes('<img') || opt.includes('<table')) return true;
-    
+
     // Check character length of plain text
     const textOnly = stripHtml(opt).trim();
     // 35 characters is a safe threshold for half-width (2x2 grid) padding
@@ -138,7 +156,7 @@ function getMcqLayout(options: string[]): string {
   });
 
   if (hasLargeOption) return 'vertical';
-  
+
   return 'grid'; // 2x2 grid is the default
 }
 
@@ -150,7 +168,17 @@ function SortableQuestion({
   onSelect,
   onRemove,
   onEdit,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  onAddSubQuestion,
   showSectionHeader,
+  canMoveSectionUp,
+  canMoveSectionDown,
+  onMoveSectionUp,
+  onMoveSectionDown,
+  onAddQuestionToSection,
   showTypeHeader
 }: SortableQuestionProps) {
   const {
@@ -177,55 +205,133 @@ function SortableQuestion({
       onClick={onSelect}
       data-question-id={question.id}
     >
-      {/* Admin overlay - hidden on print */}
-      <div className="admin-overlay-left">
-        <div className="drag-handle" {...attributes} {...listeners}>
-          <GripVertical size={14} />
-        </div>
-      </div>
-      <div className="admin-overlay-right">
-        <button className="hover-action-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit">
-          <Pencil size={12} />
-        </button>
-        <button className="hover-action-btn danger" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Delete">
-          <Trash2 size={12} />
-        </button>
-      </div>
-
-      {/* Clean HTML - this is exactly what prints */}
-      <div className="clean-question">
-        {showSectionHeader && (
-          <div className="section-divider">
-            <span>Section {showSectionHeader}</span>
+      {/* Section Divider Header */}
+      {showSectionHeader && (
+        <div className="section-divider">
+          <span>Section {showSectionHeader}</span>
+          <div className="section-admin-actions">
+            {onAddQuestionToSection && (
+              <button
+                className="section-add-btn"
+                onClick={(e) => { e.stopPropagation(); onAddQuestionToSection(showSectionHeader); }}
+                title={`Add Question to Section ${showSectionHeader}`}
+              >
+                <Plus size={13} />
+                <span>Add Question</span>
+              </button>
+            )}
+            {onMoveSectionUp && (
+              <button
+                className="section-action-icon-btn"
+                onClick={(e) => { e.stopPropagation(); onMoveSectionUp(showSectionHeader); }}
+                disabled={!canMoveSectionUp}
+                title={`Move Section ${showSectionHeader} Up`}
+              >
+                <ChevronUp size={14} />
+              </button>
+            )}
+            {onMoveSectionDown && (
+              <button
+                className="section-action-icon-btn"
+                onClick={(e) => { e.stopPropagation(); onMoveSectionDown(showSectionHeader); }}
+                disabled={!canMoveSectionDown}
+                title={`Move Section ${showSectionHeader} Down`}
+              >
+                <ChevronDown size={14} />
+              </button>
+            )}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Clean HTML - Question Content & Options with Inline Actions */}
+      <div className="clean-question">
         {showTypeHeader && (
           <div className="type-header">
             <span>{showTypeHeader}</span>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-          <span className="q-number">{questionNumber}.</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
-            {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
-              <div className={`q-options q-options-${mcqLayout}`}>
-                {question.options.map((opt, i) => (
-                  <span key={i} className="q-option" data-option-index={i} style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
-                    <span style={{ marginRight: '4px' }}>{String.fromCharCode(65 + i)}.</span>
-                    <span dangerouslySetInnerHTML={{ __html: opt }} />
-                  </span>
-                ))}
-              </div>
-            )}
-            {question.questionType === 'truefalse' && (
-              <div className="q-options q-options-horizontal">
-                <span className="q-option">(a) True</span>
-                <span className="q-option">(b) False</span>
-              </div>
-            )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, position: 'relative' }}>
+          <div className="q-drag-handle" {...attributes} {...listeners} title="Drag to reorder">
+            <GripVertical size={14} />
           </div>
-          <span className="marks-inline" style={{ flexShrink: 0, marginLeft: 24 }}>{paperQuestion.marks}m</span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+            <span className="q-number">
+              {questionNumber}.
+            </span>
+            <div className="q-content-wrapper" style={{ flex: 1, minWidth: 0 }}>
+              <div className="q-text" dangerouslySetInnerHTML={{ __html: question.content }} />
+              {question.questionType === 'mcq' && question.options && question.options.length > 0 && (
+                <div className={`q-options q-options-${mcqLayout}`}>
+                  {question.options.map((opt, i) => (
+                    <span key={i} className="q-option" data-option-index={i} style={{ display: 'inline-flex', alignItems: 'flex-start' }}>
+                      <span style={{ marginRight: '4px' }}>{String.fromCharCode(65 + i)}.</span>
+                      <span dangerouslySetInnerHTML={{ __html: opt }} />
+                    </span>
+                  ))}
+                </div>
+              )}
+              {question.questionType === 'truefalse' && (
+                <div className="q-options q-options-horizontal">
+                  <span className="q-option">(a) True</span>
+                  <span className="q-option">(b) False</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right side on the same level: Marks + Question Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 16 }}>
+            <span className="marks-inline">
+              {paperQuestion.marks}m
+            </span>
+            <div className="question-card-actions">
+              {onAddSubQuestion && (
+                <button
+                  className="q-subquestion-btn"
+                  onClick={(e) => { e.stopPropagation(); onAddSubQuestion(); }}
+                  title="Add Subquestion"
+                >
+                  <GitFork size={13} style={{ transform: 'rotate(90deg)' }} />
+                  <span>Subquestion</span>
+                </button>
+              )}
+              {onMoveUp && (
+                <button
+                  className="q-action-icon-btn"
+                  onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+                  disabled={!canMoveUp}
+                  title="Move Question Up"
+                >
+                  <ChevronUp size={14} />
+                </button>
+              )}
+              {onMoveDown && (
+                <button
+                  className="q-action-icon-btn"
+                  onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+                  disabled={!canMoveDown}
+                  title="Move Question Down"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              )}
+              <button
+                className="q-action-icon-btn"
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                title="Edit Question"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                className="q-action-icon-btn danger"
+                onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                title="Delete Question"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -235,31 +341,38 @@ function SortableQuestion({
 const CustomToolbar = ({ id = "toolbar" }: { id?: string }) => (
   <div id={id}>
     <span className="ql-formats">
-      <button className="ql-bold" />
-      <button className="ql-italic" />
-      <button className="ql-underline" />
-      <button className="ql-strike" />
+      <button className="ql-bold" title="Bold" />
+      <button className="ql-italic" title="Italic" />
+      <button className="ql-underline" title="Underline" />
+      <button className="ql-strike" title="Strikethrough" />
     </span>
     <span className="ql-formats">
-      <button className="ql-list" value="ordered" />
-      <button className="ql-list" value="bullet" />
+      <button className="ql-list" value="ordered" title="Numbered List" />
+      <button className="ql-list" value="bullet" title="Bullet List" />
     </span>
     <span className="ql-formats">
-      <button className="ql-script" value="sub" />
-      <button className="ql-script" value="super" />
+      <button className="ql-script" value="sub" title="Subscript" />
+      <button className="ql-script" value="super" title="Superscript" />
     </span>
     <span className="ql-formats">
-      <select className="ql-align" />
-      <button className="ql-image">
+      <select className="ql-align" title="Text Alignment">
+        <option value="" />
+        <option value="center" />
+        <option value="right" />
+        <option value="justify" />
+      </select>
+    </span>
+    <span className="ql-formats">
+      <button className="ql-image" title="Insert Image">
         <ImageIcon size={16} />
       </button>
-      <button className="ql-table">
+      <button className="ql-table" title="Insert Table">
         <Table2 size={16} />
       </button>
-      <button className="ql-math">
-        <span>&sum;</span>
+      <button className="ql-math" title="Insert LaTeX Formula">
+        <span style={{ fontSize: 16, fontWeight: 'bold' }}>&sum;</span>
       </button>
-      <button className="ql-clean" />
+      <button className="ql-clean" title="Clear Formatting" />
     </span>
   </div>
 );
@@ -402,6 +515,9 @@ export default function Editor() {
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   const [showMathDialog, setShowMathDialog] = useState(false);
+  const [showCreatorHub, setShowCreatorHub] = useState(false);
+  const [showPaperSettings, setShowPaperSettings] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [mathKeyboardVisible, setMathKeyboardVisible] = useState(false);
   const mathDialogCallbackRef = useRef<((latex: string) => void) | null>(null);
   const mathFieldRef = useRef<any>(null);
@@ -501,6 +617,90 @@ export default function Editor() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
+  const handleMoveQuestion = async (pqId: string, direction: 'up' | 'down') => {
+    if (!id) return;
+    const currentIndex = paperQuestionsList.findIndex(pq => pq.id === pqId);
+    if (currentIndex === -1) return;
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= paperQuestionsList.length) return;
+    const newList = arrayMove(paperQuestionsList, currentIndex, targetIndex);
+    await reorderPaperQuestions(id, newList);
+  };
+
+  const distinctSections = useMemo(() => {
+    const seen = new Set<string>();
+    const res: string[] = [];
+    for (const pq of paperQuestionsList) {
+      if (!seen.has(pq.section)) {
+        seen.add(pq.section);
+        res.push(pq.section);
+      }
+    }
+    return res;
+  }, [paperQuestionsList]);
+
+  const sectionTotalMarks = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const pq of paperQuestionsList) {
+      map[pq.section] = (map[pq.section] || 0) + (pq.marks || 0);
+    }
+    return map;
+  }, [paperQuestionsList]);
+
+  const handleMoveSection = async (section: string, direction: 'up' | 'down') => {
+    if (!id) return;
+    const secIdx = distinctSections.indexOf(section);
+    if (secIdx === -1) return;
+    const targetSecIdx = direction === 'up' ? secIdx - 1 : secIdx + 1;
+    if (targetSecIdx < 0 || targetSecIdx >= distinctSections.length) return;
+
+    const targetSection = distinctSections[targetSecIdx];
+    const newOrderSections = [...distinctSections];
+    newOrderSections[secIdx] = targetSection;
+    newOrderSections[targetSecIdx] = section;
+
+    const grouped: Record<string, PaperQuestion[]> = {};
+    for (const s of newOrderSections) grouped[s] = [];
+    for (const pq of paperQuestionsList) {
+      if (grouped[pq.section]) {
+        grouped[pq.section].push(pq);
+      } else {
+        grouped[pq.section] = [pq];
+      }
+    }
+
+    const newList: PaperQuestion[] = [];
+    for (const s of newOrderSections) {
+      if (grouped[s]) newList.push(...grouped[s]);
+    }
+    for (const pq of paperQuestionsList) {
+      if (!newList.some(item => item.id === pq.id)) {
+        newList.push(pq);
+      }
+    }
+
+    await reorderPaperQuestions(id, newList);
+  };
+
+  const handleAddQuestionToSection = (section: string) => {
+    setDraftSection((section as PaperSection) || 'A');
+    setShowCreatorHub(true);
+  };
+
+  const handleAddSubQuestion = (parentPQ: PaperQuestion) => {
+    const parentQ = getQuestion(parentPQ.questionId);
+    setSelectedPQId(null);
+    setDraftType(parentQ?.questionType || 'mcq');
+    setDraftContent('');
+    setDraftOptions(parentQ?.questionType === 'mcq' ? ['', '', '', ''] : []);
+    setDraftSection(parentPQ.section);
+    setDraftMarks(parentPQ.marks || 1);
+    setDraftDifficulty(parentQ?.difficulty || 'medium');
+    setDraftTypeHeader(parentQ?.typeHeader || (parentQ ? getTypeHeader(parentQ.questionType) : ''));
+    setEditingQuestionId(null);
+    setShowCreatorHub(false);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id && id) {
@@ -523,11 +723,12 @@ export default function Editor() {
     setDraftType(type);
     setDraftContent('');
     setDraftOptions(['', '', '', '']);
-    setDraftSection(selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.section || 'A') : 'A');
+    setDraftSection(prev => prev || (selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.section || 'A') : 'A'));
     setDraftMarks(selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.marks || 1) : 1);
     setDraftDifficulty('medium');
     setDraftTypeHeader(getTypeHeader(type));
     setSelectedPQId(null);
+    setShowCreatorHub(false);
   };
 
   const handleAddDraftToPaper = async () => {
@@ -619,8 +820,9 @@ export default function Editor() {
     updatePaperQuestion(pqId, { section, marks });
   };
 
-  const handleEditQuestion = () => {
-    const pq = paperQuestionsList.find(pq => pq.id === selectedPQId);
+  const handleEditQuestion = (pqId?: string) => {
+    const targetId = pqId || selectedPQId;
+    const pq = paperQuestionsList.find(pq => pq.id === targetId);
     if (!pq) return;
     const q = questions.find(q => q.id === pq.questionId);
     if (!q) return;
@@ -649,14 +851,7 @@ export default function Editor() {
   const getSubject = (id?: string) => subjects.find(s => s.id === id);
   const getClass = (id?: string) => classes.find(c => c.id === id);
 
-  const selectedPQ = useMemo(() => {
-    return paperQuestionsList.find(pq => pq.id === selectedPQId);
-  }, [paperQuestionsList, selectedPQId]);
 
-  const selectedQuestion = useMemo(() => {
-    if (!selectedPQ) return null;
-    return questions.find(q => q.id === selectedPQ.questionId);
-  }, [selectedPQ, questions]);
 
   const totalMarks = useMemo(() => {
     return paperQuestionsList.reduce((sum, pq) => sum + pq.marks, 0);
@@ -700,7 +895,7 @@ export default function Editor() {
         q.content,
         q.questionType,
         q.options,
-        'A',
+        draftSection || 'A',
         1,
         undefined,
         q.subjectId,
@@ -767,6 +962,12 @@ export default function Editor() {
         questionNumber++;
       }
 
+      const secIdx = showSectionHeader ? distinctSections.indexOf(showSectionHeader) : -1;
+      const sectionNumber = secIdx !== -1 ? secIdx + 1 : 1;
+      const sectionMarks = showSectionHeader ? (sectionTotalMarks[showSectionHeader] || 0) : 0;
+      const canMoveSectionUp = secIdx > 0;
+      const canMoveSectionDown = secIdx !== -1 && secIdx < distinctSections.length - 1;
+
       return (
         <SortableQuestion
           key={pq.id}
@@ -775,17 +976,29 @@ export default function Editor() {
           isSelected={selectedPQId === pq.id}
           questionNumber={questionNumber}
           showSectionHeader={showSectionHeader}
+          sectionNumber={sectionNumber}
+          sectionMarks={sectionMarks}
+          canMoveSectionUp={canMoveSectionUp}
+          canMoveSectionDown={canMoveSectionDown}
+          onMoveSectionUp={(sec) => handleMoveSection(sec, 'up')}
+          onMoveSectionDown={(sec) => handleMoveSection(sec, 'down')}
+          onAddQuestionToSection={handleAddQuestionToSection}
           showTypeHeader={showTypeHeader}
+          canMoveUp={globalIndex > 0}
+          canMoveDown={globalIndex < paperQuestionsList.length - 1}
+          onMoveUp={() => handleMoveQuestion(pq.id, 'up')}
+          onMoveDown={() => handleMoveQuestion(pq.id, 'down')}
+          onAddSubQuestion={() => handleAddSubQuestion(pq)}
           onSelect={() => { setSelectedPQId(pq.id); setDraftType(null); }}
           onRemove={() => handleRemovePQ(pq.id, pq.questionId)}
-          onEdit={() => handleEditQuestion()}
+          onEdit={() => handleEditQuestion(pq.id)}
         />
       );
     });
   };
 
   const renderPaperHeader = () => (
-    <div className="paper-header" style={{ position: 'relative', paddingBottom: 16, marginBottom: 8 }}>
+    <div className="paper-header" style={{ position: 'relative', paddingBottom: 10, marginBottom: 4 }}>
       {paper.headerConfig?.logoUrl && (
         <>
           <Rnd
@@ -873,7 +1086,7 @@ export default function Editor() {
           if (isOption) {
             optionIndex = parseInt(qOption.getAttribute('data-option-index') || '0', 10);
           }
-          
+
           const q = questions.find(qu => qu.id === questionId);
           if (q) {
             const paperContainer = target.closest('.paper-container') as HTMLElement;
@@ -881,11 +1094,11 @@ export default function Editor() {
 
             const containerRect = paperContainer.getBoundingClientRect();
             const imgRect = target.getBoundingClientRect();
-            
+
             const originalHtml = isOption ? (q.options ? q.options[optionIndex!] : '') : q.content;
-            
+
             (target as HTMLImageElement).style.opacity = '0';
-            
+
             setEditingImage({
               src: (target as HTMLImageElement).src,
               questionId,
@@ -908,15 +1121,576 @@ export default function Editor() {
   };
 
   return (
-    <div className="editor-layout">
+    <div className={`editor-layout ${isPreviewMode ? 'preview-active' : ''}`}>
 
-      {/* MathLive Equation Dialog */}
+      {/* TOP TOOLBAR */}
+      <div className="editor-top-toolbar">
+        <div className="toolbar-left">
+          <button className="toolbar-icon-btn" onClick={() => navigate('/')} title="Back to Dashboard">
+            <ArrowLeft size={18} />
+          </button>
+          <div className="toolbar-title-group">
+            <h2 className="toolbar-paper-title">{paper.title}</h2>
+            <span className="toolbar-paper-meta">
+              {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'} • {totalMarks} Marks{paper.duration ? ` • ${paper.duration} min` : ''}
+            </span>
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <button className="toolbar-btn-outlined" onClick={() => setIsPreviewMode(!isPreviewMode)}>
+            {isPreviewMode ? <><Pencil size={14} /> Back to Editor</> : <><Eye size={14} /> Student Preview</>}
+          </button>
+          <button className="toolbar-btn-outlined" onClick={() => setShowPaperSettings(true)}>
+            <Settings size={14} /> Paper Settings
+          </button>
+          <button className="toolbar-btn-accent" onClick={() => setShowCreatorHub(true)}>
+            <Plus size={14} /> Add Question
+          </button>
+          <button className="toolbar-btn-accent" onClick={exportPDF}>
+            <Download size={14} /> Export PDF
+          </button>
+        </div>
+      </div>
+
+      {/* CENTER - Clean HTML Paper (WYSIWYG) */}
+      <div className="editor-canvas">
+        <div className="paper-container" ref={paperRef} id="printable-paper" onClick={handleCanvasClick}>
+          {/* Hidden measurement container */}
+          <div
+            ref={measureRef}
+            className="measurement-container"
+            style={{
+              position: 'absolute', left: -9999, top: 0,
+              width: '794px', padding: '20px 40px',
+              background: 'white', zIndex: -1, opacity: 0, pointerEvents: 'none',
+            }}
+          >
+            {paperQuestionsList.map((pq) => {
+              const q = getQuestion(pq.questionId);
+              if (!q) return null;
+              const mcqLayout = q.questionType === 'mcq' ? getMcqLayout(q.options || []) : 'vertical';
+              return (
+                <div key={pq.id} data-pq-id={pq.id} className="clean-question" style={{ padding: '8px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                    <span className="q-number">1.</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="q-text" dangerouslySetInnerHTML={{ __html: q.content }} />
+                      {q.questionType === 'mcq' && q.options && q.options.length > 0 && (
+                        <div className={`q-options q-options-${mcqLayout}`}>
+                          {q.options.map((opt, i) => (
+                            <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
+                          ))}
+                        </div>
+                      )}
+                      {q.questionType === 'truefalse' && (
+                        <div className="q-options q-options-horizontal">
+                          <span className="q-option">(a) True</span>
+                          <span className="q-option">(b) False</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="marks-inline" style={{ flexShrink: 0, marginLeft: 24 }}>{pq.marks}m</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {paperQuestionsList.length === 0 ? (
+            <div className="paper-page last-page">
+              {renderPaperHeader()}
+              <div className="empty-paper">
+                <div className="empty-paper-icon">
+                  <Plus size={28} />
+                </div>
+                <h3>No questions yet</h3>
+                <p>Click "Add Question" in the toolbar to get started</p>
+                <button className="btn btn-primary" onClick={() => setShowCreatorHub(true)} style={{ marginTop: 16 }}>
+                  <Plus size={14} style={{ marginRight: 6 }} />
+                  Add Question
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="paper-page last-page">
+              {renderPaperHeader()}
+              {isPreviewMode && (
+                <div className="preview-mode-banner">
+                  <Eye size={14} /> Student Preview Mode — Admin controls are hidden
+                </div>
+              )}
+              <div className="paper-questions-list">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={paperQuestionsList.map(pq => pq.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {renderQuestionRange(0, paperQuestionsList.length)}
+                  </SortableContext>
+                </DndContext>
+              </div>
+            </div>
+          )}
+          <div className="print-footer">Created using PaperForm</div>
+          <div className="print-spacer" />
+
+          {editingImage && (
+            <div style={{
+              position: 'absolute',
+              top: editingImage.top,
+              left: editingImage.left,
+              zIndex: 1000,
+              background: 'rgba(255,255,255,0.9)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              borderRadius: 4,
+              padding: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8
+            }} onClick={(e) => e.stopPropagation()}>
+              <ReactCrop
+                crop={crop}
+                onChange={(c) => setCrop(c)}
+                onComplete={(c) => setCompletedCrop(c)}
+              >
+                <img
+                  ref={imgRef}
+                  src={editingImage.src}
+                  alt="Crop preview"
+                  style={{ width: imageResizeWidth > 0 ? imageResizeWidth : 'auto', height: 'auto', display: 'block', maxWidth: '100%' }}
+                />
+              </ReactCrop>
+
+              <div style={{ display: 'flex', gap: 8, width: '100%', justifyContent: 'center', alignItems: 'center', padding: '4px 8px' }}>
+                <span style={{ fontSize: 12, color: '#666', fontWeight: 600 }}>Width:</span>
+                <input
+                  type="number"
+                  style={{ width: 60, padding: 4, border: '1px solid #ccc', borderRadius: 4, fontSize: 12 }}
+                  value={Math.round(imageResizeWidth)}
+                  onChange={(e) => setImageResizeWidth(Number(e.target.value))}
+                />
+                <span style={{ fontSize: 12, color: '#666' }}>px</span>
+
+                <button style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }} onClick={() => {
+                  if (editingImage.imgElement) editingImage.imgElement.style.opacity = '1';
+                  setEditingImage(null);
+                }} title="Cancel">
+                  ✕
+                </button>
+                <button style={{ background: '#10B981', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 4 }} onClick={async () => {
+                  let newSrc = editingImage.src;
+                  if (completedCrop && completedCrop.width > 0 && completedCrop.height > 0 && imgRef.current) {
+                    newSrc = await getCroppedImg(imgRef.current, completedCrop);
+                  }
+
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(editingImage.originalHtml, 'text/html');
+                  const imgs = doc.querySelectorAll('img');
+                  imgs.forEach(img => {
+                    if (img.getAttribute('src') === editingImage.src || img.src === editingImage.src) {
+                      img.src = newSrc;
+                      if (imageResizeWidth > 0) {
+                        img.style.width = `${imageResizeWidth}px`;
+                      }
+                    }
+                  });
+                  const newHtml = doc.body.innerHTML;
+
+                  if (editingImage.isOption && editingImage.optionIndex !== undefined) {
+                    const q = questions.find(q => q.id === editingImage.questionId);
+                    if (q) {
+                      const newOptions = [...(q.options || [])];
+                      newOptions[editingImage.optionIndex] = newHtml;
+                      await updateQuestion(q.id, { options: newOptions });
+                    }
+                  } else {
+                    await updateQuestion(editingImage.questionId, { content: newHtml });
+                  }
+
+                  if (editingImage.imgElement) editingImage.imgElement.style.opacity = '1';
+                  setEditingImage(null);
+                  setCrop(undefined);
+                  setCompletedCrop(undefined);
+                }}>
+                  ✓ Apply
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CREATOR HUB MODAL */}
+      {showCreatorHub && (
+        <div className="modal-overlay" onClick={() => setShowCreatorHub(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title">Add Question</h2>
+              <button className="modal-close-btn" onClick={() => setShowCreatorHub(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-content">
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Choose a question type to create, or add from your question bank.
+              </p>
+              <div className="creator-hub-cards">
+                {BLOCK_TYPES.map(({ type, label, icon: Icon, description }) => (
+                  <button
+                    key={type}
+                    className="creator-hub-card"
+                    onClick={() => handleSelectBlockType(type)}
+                  >
+                    <div className="creator-hub-card-icon"><Icon size={20} /></div>
+                    <div className="creator-hub-card-info">
+                      <span className="creator-hub-card-label">{label}</span>
+                      <span className="creator-hub-card-desc">{description}</span>
+                    </div>
+                    <span className="creator-hub-card-arrow">→</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Question Bank Section */}
+              <div className="creator-hub-bank">
+                <h4 className="creator-hub-bank-title">
+                  <Search size={14} /> Question Bank
+                </h4>
+                <div style={{ marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="Search your bank..."
+                    value={suggestedSearch}
+                    onChange={(e) => setSuggestedSearch(e.target.value)}
+                    className="creator-hub-search"
+                  />
+                </div>
+                <div className="creator-hub-bank-list">
+                  {suggestedQuestions.length === 0 ? (
+                    <div className="creator-hub-bank-empty">No questions found</div>
+                  ) : (
+                    suggestedQuestions.map(q => (
+                      <div key={q.id} className="creator-hub-bank-item">
+                        <div className="creator-hub-bank-item-info">
+                          <span className="creator-hub-bank-item-type">
+                            {BLOCK_TYPES.find(b => b.type === q.questionType)?.label || q.questionType}
+                          </span>
+                          <span className="creator-hub-bank-item-text">
+                            {stripHtml(q.content)}
+                          </span>
+                        </div>
+                        <div className="creator-hub-bank-item-actions" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { handleAddSuggested(q.id); setShowCreatorHub(false); }} title="Add to paper">
+                            <Plus size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteBankQuestion(q.id)} title="Delete from bank" className="danger">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUESTION EDITOR MODAL */}
+      {draftType && (
+        <div className="modal-overlay" onClick={resetDraft}>
+          <div className="modal question-editor-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 className="modal-title">
+                  {editingQuestionId ? 'Edit Question' : 'Add Question'}
+                </h2>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  {BLOCK_TYPES.find(b => b.type === draftType)?.label || draftType}
+                </p>
+              </div>
+              <button className="modal-close-btn" onClick={resetDraft}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-content" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Section</label>
+                  <select
+                    className="property-input"
+                    value={draftSection}
+                    onChange={(e) => setDraftSection(e.target.value as PaperSection)}
+                  >
+                    <option value="A">Section A</option>
+                    <option value="B">Section B</option>
+                    <option value="C">Section C</option>
+                    <option value="D">Section D</option>
+                  </select>
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Marks</label>
+                  <input
+                    type="number"
+                    className="property-input"
+                    value={draftMarks}
+                    onChange={(e) => setDraftMarks(parseInt(e.target.value) || 1)}
+                    min={1}
+                  />
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Difficulty</label>
+                  <select
+                    className="property-input"
+                    value={draftDifficulty}
+                    onChange={(e) => setDraftDifficulty(e.target.value as Difficulty)}
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+              </div>
+              <div className="property-field">
+                <label className="property-label">Question Header Label</label>
+                <input
+                  type="text"
+                  className="property-input"
+                  placeholder="e.g., Answer the following:"
+                  value={draftTypeHeader}
+                  onChange={(e) => setDraftTypeHeader(e.target.value)}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Question Content</label>
+                <FullQuill
+                  value={draftContent}
+                  onChange={(content) => setDraftContent(content)}
+                  placeholder="Enter your question..."
+                  openMathDialog={openMathDialog}
+                  toolbarId="question-toolbar"
+                />
+              </div>
+              {draftType === 'mcq' && (
+                <div className="property-field">
+                  <label className="property-label">Options</label>
+                  {draftOptions.map((opt, i) => (
+                    <div key={i} style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Option {String.fromCharCode(65 + i)}</label>
+                        {draftOptions.length > 2 && (
+                          <button
+                            className="hover-action-btn danger"
+                            onClick={() => handleRemoveOption(i)}
+                            title={`Remove Option ${String.fromCharCode(65 + i)}`}
+                            style={{ padding: '2px 4px' }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                      <FullQuill
+                        value={opt}
+                        onChange={(val) => {
+                          const newOpts = [...draftOptions];
+                          newOpts[i] = val;
+                          setDraftOptions(newOpts);
+                        }}
+                        placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                        openMathDialog={openMathDialog}
+                        toolbarId={`option-toolbar-${i}`}
+                      />
+                    </div>
+                  ))}
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleAddOption}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}
+                  >
+                    <Plus size={14} />
+                    Add Option
+                  </button>
+                </div>
+              )}
+              {draftType === 'truefalse' && (
+                <div className="property-field">
+                  <label className="property-label">Answer</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-secondary" style={{ flex: 1 }}>True</button>
+                    <button className="btn btn-secondary" style={{ flex: 1 }}>False</button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={resetDraft}>Cancel</button>
+              {editingQuestionId ? (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleUpdateQuestion}
+                  disabled={saving || !draftContent.trim()}
+                >
+                  {saving ? 'Updating...' : 'Update Question'}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleAddDraftToPaper}
+                  disabled={saving || !draftContent.trim()}
+                >
+                  {saving ? 'Adding...' : 'Add to Paper'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAPER SETTINGS MODAL */}
+      {showPaperSettings && (
+        <div className="modal-overlay" onClick={() => setShowPaperSettings(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 className="modal-title">Paper Settings</h2>
+              <button className="modal-close-btn" onClick={() => setShowPaperSettings(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-content" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+              <div className="property-field">
+                <label className="property-label">Paper Title</label>
+                <input
+                  type="text"
+                  className="property-input"
+                  value={paper.title}
+                  onChange={(e) => updateQuestionPaper(paper.id, { title: e.target.value })}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Institution Name</label>
+                <input
+                  type="text"
+                  className="property-input"
+                  value={user?.schoolName || ''}
+                  onChange={(e) => {
+                    if (user) useStore.getState().setUser({ ...user, schoolName: e.target.value });
+                  }}
+                  placeholder="Enter Institution name..."
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Institution Logo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="property-input"
+                  style={{ fontSize: 12 }}
+                />
+                {paper.headerConfig?.logoUrl && (
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => handleUpdateHeaderConfig({ logoUrl: undefined })}
+                    style={{ width: '100%', marginTop: 8, fontSize: 12, padding: '4px 8px' }}
+                  >
+                    Remove Logo
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Course</label>
+                  <select
+                    className="property-input"
+                    value={paper.courseId || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { courseId: e.target.value || undefined })}
+                  >
+                    <option value="">No Course</option>
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Subject</label>
+                  <select
+                    className="property-input"
+                    value={paper.subjectId || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { subjectId: e.target.value || undefined })}
+                  >
+                    <option value="">No Subject</option>
+                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Class</label>
+                  <select
+                    className="property-input"
+                    value={paper.classId || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { classId: e.target.value || undefined })}
+                  >
+                    <option value="">No Class</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="property-field" style={{ flex: 1 }}>
+                  <label className="property-label">Date</label>
+                  <input
+                    type="date"
+                    className="property-input"
+                    value={paper.date || ''}
+                    onChange={(e) => updateQuestionPaper(paper.id, { date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="property-field">
+                <label className="property-label">Duration (min)</label>
+                <input
+                  type="number"
+                  className="property-input"
+                  value={paper.duration || 0}
+                  onChange={(e) => updateQuestionPaper(paper.id, { duration: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="property-field">
+                <label className="property-label">Instructions</label>
+                <FullQuill
+                  value={paper.instructions || ''}
+                  onChange={(val) => updateQuestionPaper(paper.id, { instructions: val })}
+                  placeholder="Enter instructions..."
+                  openMathDialog={openMathDialog}
+                  toolbarId="instructions-toolbar"
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-primary" onClick={() => setShowPaperSettings(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MathLive Equation Dialog (Rendered last with highest z-index so it always appears above the Question Modal) */}
       {showMathDialog && (
-        <div className="modal-overlay" style={mathKeyboardVisible ? { alignItems: 'flex-start', paddingTop: '8vh' } : {}} onClick={() => {
-          if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide();
-          setShowMathDialog(false);
-        }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700, zIndex: 3001 }}>
+        <div
+          className="modal-overlay math-dialog-overlay"
+          style={{
+            zIndex: 10000,
+            ...(mathKeyboardVisible ? { alignItems: 'flex-start', paddingTop: '8vh' } : {})
+          }}
+          onClick={() => {
+            if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide();
+            setShowMathDialog(false);
+          }}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700, zIndex: 10001 }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 className="modal-title">Insert Math Formula</h2>
               <button
@@ -980,602 +1754,6 @@ export default function Editor() {
           </div>
         </div>
       )}
-
-      {/* LEFT SIDEBAR */}
-      <div className="editor-sidebar">
-        <div className="editor-sidebar-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <button onClick={() => navigate('/')} style={{ padding: 4 }}>
-              <ArrowLeft size={20} style={{ color: 'white' }} />
-            </button>
-            <h2 className="editor-sidebar-title" style={{ margin: 0, fontSize: 22 }}>{paper.title}</h2>
-          </div>
-          <p className="editor-sidebar-subtitle">
-            {getCourse(paper.courseId)?.name || 'No Course'} • {getSubject(paper.subjectId)?.name || 'No Subject'} • {totalMarks} Marks{paper.duration ? ` • ${paper.duration} min` : ''}
-          </p>
-        </div>
-
-        <div className="block-palette" style={{ flex: '0 0 auto', overflow: 'visible' }}>
-          <h3 className="block-palette-title">Question Blocks</h3>
-          <div className="block-items">
-            {BLOCK_TYPES.map(({ type, label, icon: Icon, description }) => (
-              <button
-                key={type}
-                className={`block-item ${draftType === type ? 'active' : ''}`}
-                onClick={() => handleSelectBlockType(type)}
-              >
-                <div className="block-item-icon"><Icon size={16} /></div>
-                <div className="block-item-info">
-                  <span className="block-item-label">{label}</span>
-                  <span className="block-item-desc">{description}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="block-palette" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <h3 className="block-palette-title">Question Bank</h3>
-          <div style={{ padding: '0 0 12px 4px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
-              <input
-                type="text"
-                placeholder="Search your bank..."
-                value={suggestedSearch}
-                onChange={(e) => setSuggestedSearch(e.target.value)}
-                style={{ width: '100%', paddingLeft: 28, fontSize: 12 }}
-                className="property-input"
-              />
-            </div>
-          </div>
-          <div className="block-items" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 4px', minHeight: 0 }}>
-            {suggestedQuestions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                <p>No questions found</p>
-              </div>
-            ) : (
-              suggestedQuestions.map(q => (
-                <div
-                  key={q.id}
-                  className="block-item bank-item-suggested"
-                  onClick={() => handleAddSuggested(q.id)}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '10px 12px',
-                    marginBottom: 8,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    flexShrink: 0
-                  }}
-                >
-                  <div className="block-item-info" style={{ flex: 1, minWidth: 0 }}>
-                    <span className="block-item-label">
-                      {BLOCK_TYPES.find(b => b.type === q.questionType)?.label || q.questionType}
-                    </span>
-                    <span className="block-item-desc" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {stripHtml(q.content)}
-                    </span>
-                  </div>
-                  <div
-                    className="bank-item-actions"
-                    style={{ position: 'static', display: 'flex', gap: 8, flexShrink: 0 }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Plus
-                      size={16}
-                      onClick={() => handleAddSuggested(q.id)}
-                      style={{ cursor: 'pointer', color: 'var(--accent)' }}
-                      className="bank-action-icon"
-                    />
-                    <Trash2
-                      size={16}
-                      onClick={() => handleDeleteBankQuestion(q.id)}
-                      style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.4)' }}
-                      className="bank-action-icon hover-danger"
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* CENTER - Clean HTML Paper (WYSIWYG) */}
-      <div className="editor-canvas">
-        <div className="paper-container" ref={paperRef} id="printable-paper" onClick={handleCanvasClick}>
-          {/* Hidden measurement container */}
-          <div
-            ref={measureRef}
-            className="measurement-container"
-            style={{
-              position: 'absolute', left: -9999, top: 0,
-              width: '794px', padding: '20px 40px',
-              background: 'white', zIndex: -1, opacity: 0, pointerEvents: 'none',
-            }}
-          >
-            {paperQuestionsList.map((pq) => {
-              const q = getQuestion(pq.questionId);
-              if (!q) return null;
-              const mcqLayout = q.questionType === 'mcq' ? getMcqLayout(q.options || []) : 'vertical';
-              return (
-                <div key={pq.id} data-pq-id={pq.id} className="clean-question" style={{ padding: '8px 0' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                    <span className="q-number">1.</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="q-text" dangerouslySetInnerHTML={{ __html: q.content }} />
-                      {q.questionType === 'mcq' && q.options && q.options.length > 0 && (
-                        <div className={`q-options q-options-${mcqLayout}`}>
-                          {q.options.map((opt, i) => (
-                            <span key={i} className="q-option">{String.fromCharCode(65 + i)}. {opt}</span>
-                          ))}
-                        </div>
-                      )}
-                      {q.questionType === 'truefalse' && (
-                        <div className="q-options q-options-horizontal">
-                          <span className="q-option">(a) True</span>
-                          <span className="q-option">(b) False</span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="marks-inline" style={{ flexShrink: 0, marginLeft: 24 }}>{pq.marks}m</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {paperQuestionsList.length === 0 ? (
-            <div className="paper-page last-page">
-              {renderPaperHeader()}
-              <div className="empty-paper">
-                <div className="empty-paper-icon">
-                  <Plus size={28} />
-                </div>
-                <h3>No questions yet</h3>
-                <p>Select a question block from the left panel to get started</p>
-              </div>
-            </div>
-          ) : (
-            <div className="paper-page last-page">
-              {renderPaperHeader()}
-              <div className="paper-questions-list">
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={paperQuestionsList.map(pq => pq.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {renderQuestionRange(0, paperQuestionsList.length)}
-                  </SortableContext>
-                </DndContext>
-              </div>
-            </div>
-          )}
-          <div className="print-footer">Created using PaperForm</div>
-          <div className="print-spacer" />
-          
-          {editingImage && (
-            <div style={{
-              position: 'absolute',
-              top: editingImage.top,
-              left: editingImage.left,
-              zIndex: 1000,
-              background: 'rgba(255,255,255,0.9)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              borderRadius: 4,
-              padding: 4,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 8
-            }} onClick={(e) => e.stopPropagation()}>
-              <ReactCrop
-                crop={crop}
-                onChange={(c) => setCrop(c)}
-                onComplete={(c) => setCompletedCrop(c)}
-              >
-                <img 
-                  ref={imgRef}
-                  src={editingImage.src} 
-                  alt="Crop preview" 
-                  style={{ width: imageResizeWidth > 0 ? imageResizeWidth : 'auto', height: 'auto', display: 'block', maxWidth: '100%' }} 
-                />
-              </ReactCrop>
-              
-              <div style={{ display: 'flex', gap: 8, width: '100%', justifyContent: 'center', alignItems: 'center', padding: '4px 8px' }}>
-                <span style={{ fontSize: 12, color: '#666', fontWeight: 600 }}>Width:</span>
-                <input 
-                  type="number" 
-                  style={{ width: 60, padding: 4, border: '1px solid #ccc', borderRadius: 4, fontSize: 12 }}
-                  value={Math.round(imageResizeWidth)} 
-                  onChange={(e) => setImageResizeWidth(Number(e.target.value))} 
-                />
-                <span style={{ fontSize: 12, color: '#666' }}>px</span>
-                
-                <button style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }} onClick={() => {
-                  if (editingImage.imgElement) editingImage.imgElement.style.opacity = '1';
-                  setEditingImage(null);
-                }} title="Cancel">
-                  ✕
-                </button>
-                <button style={{ background: '#10B981', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 4 }} onClick={async () => {
-                  let newSrc = editingImage.src;
-                  if (completedCrop && completedCrop.width > 0 && completedCrop.height > 0 && imgRef.current) {
-                    newSrc = await getCroppedImg(imgRef.current, completedCrop);
-                  }
-                  
-                  const parser = new DOMParser();
-                  const doc = parser.parseFromString(editingImage.originalHtml, 'text/html');
-                  const imgs = doc.querySelectorAll('img');
-                  imgs.forEach(img => {
-                    if (img.getAttribute('src') === editingImage.src || img.src === editingImage.src) {
-                      img.src = newSrc;
-                      if (imageResizeWidth > 0) {
-                        img.style.width = `${imageResizeWidth}px`;
-                      }
-                    }
-                  });
-                  const newHtml = doc.body.innerHTML;
-                  
-                  if (editingImage.isOption && editingImage.optionIndex !== undefined) {
-                    const q = questions.find(q => q.id === editingImage.questionId);
-                    if (q) {
-                      const newOptions = [...(q.options || [])];
-                      newOptions[editingImage.optionIndex] = newHtml;
-                      await updateQuestion(q.id, { options: newOptions });
-                    }
-                  } else {
-                    await updateQuestion(editingImage.questionId, { content: newHtml });
-                  }
-                  
-                  if (editingImage.imgElement) editingImage.imgElement.style.opacity = '1';
-                  setEditingImage(null);
-                  setCrop(undefined);
-                  setCompletedCrop(undefined);
-                }}>
-                  ✓ Apply
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* RIGHT PANEL */}
-      <div className="property-panel">
-        <div className="property-panel-header">
-          <h2 className="property-panel-title">
-            {draftType ? (editingQuestionId ? 'Edit Question' : 'Add Question') : selectedPQ ? 'Properties' : 'Page Settings'}
-          </h2>
-        </div>
-        <div className="property-panel-content">
-          {!draftType && !selectedPQ && (
-            <div className="header-settings">
-              <h3 className="block-palette-title" style={{ padding: 0, marginBottom: 12 }}>Paper Metadata</h3>
-              <div className="property-field">
-                <label className="property-label editor-label">Paper Title</label>
-                <input
-                  type="text"
-                  className="property-input"
-                  value={paper.title}
-                  onChange={(e) => updateQuestionPaper(paper.id, { title: e.target.value })}
-                />
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Institution Name</label>
-                <input
-                  type="text"
-                  className="property-input"
-                  value={user?.schoolName || ''}
-                  onChange={(e) => {
-                    if (user) useStore.getState().setUser({ ...user, schoolName: e.target.value });
-                  }}
-                  placeholder="Enter Institution name..."
-                />
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Institution Logo</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="property-input"
-                  style={{ fontSize: 12 }}
-                />
-                {paper.headerConfig?.logoUrl && (
-                  <button
-                    className="btn btn-danger"
-                    onClick={() => handleUpdateHeaderConfig({ logoUrl: undefined })}
-                    style={{ width: '100%', marginTop: 8, fontSize: 12, padding: '4px 8px' }}
-                  >
-                    Remove Logo
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div className="property-field" style={{ flex: 1 }}>
-                  <label className="property-label editor-label">Course</label>
-                  <select
-                    className="property-input"
-                    value={paper.courseId || ''}
-                    onChange={(e) => updateQuestionPaper(paper.id, { courseId: e.target.value || undefined })}
-                  >
-                    <option value="">No Course</option>
-                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="property-field" style={{ flex: 1 }}>
-                  <label className="property-label editor-label">Subject</label>
-                  <select
-                    className="property-input"
-                    value={paper.subjectId || ''}
-                    onChange={(e) => updateQuestionPaper(paper.id, { subjectId: e.target.value || undefined })}
-                  >
-                    <option value="">No Subject</option>
-                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div className="property-field" style={{ flex: 1 }}>
-                  <label className="property-label editor-label">Class</label>
-                  <select
-                    className="property-input"
-                    value={paper.classId || ''}
-                    onChange={(e) => updateQuestionPaper(paper.id, { classId: e.target.value || undefined })}
-                  >
-                    <option value="">No Class</option>
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="property-field" style={{ flex: 1 }}>
-                  <label className="property-label editor-label">Date</label>
-                  <input
-                    type="date"
-                    className="property-input"
-                    value={paper.date || ''}
-                    onChange={(e) => updateQuestionPaper(paper.id, { date: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Duration (min)</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={paper.duration || 0}
-                  onChange={(e) => updateQuestionPaper(paper.id, { duration: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-
-              <div className="property-field">
-                <label className="property-label editor-label">Instructions</label>
-                <FullQuill
-                  value={paper.instructions || ''}
-                  onChange={(val) => updateQuestionPaper(paper.id, { instructions: val })}
-                  placeholder="Enter instructions..."
-                  openMathDialog={openMathDialog}
-                  toolbarId="instructions-toolbar"
-                />
-              </div>
-            </div>
-          )}
-          {draftType && (
-            <>
-              <div className="property-field">
-                <label className="property-label editor-label">Question Type</label>
-                <div className="question-type-badge">{BLOCK_TYPES.find(b => b.type === draftType)?.label || draftType}</div>
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Question Content</label>
-                <FullQuill
-                  value={draftContent}
-                  onChange={(content) => setDraftContent(content)}
-                  placeholder="Enter your question..."
-                  openMathDialog={openMathDialog}
-                  toolbarId="question-toolbar"
-                />
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Section Header Label</label>
-                <input
-                  type="text"
-                  className="property-input"
-                  placeholder="e.g., Answer the following:"
-                  value={draftTypeHeader}
-                  onChange={(e) => setDraftTypeHeader(e.target.value)}
-                  style={{ marginBottom: 6 }}
-                />
-              </div>
-              {draftType === 'mcq' && (
-                <div className="property-field">
-                  <label className="property-label editor-label">Options</label>
-                  {draftOptions.map((opt, i) => (
-                    <div key={i} style={{ marginBottom: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <label style={{ fontSize: 12, color: 'white', display: 'block' }}>Option {String.fromCharCode(65 + i)}</label>
-                        {draftOptions.length > 2 && (
-                          <button
-                            className="hover-action-btn danger"
-                            onClick={() => handleRemoveOption(i)}
-                            title={`Remove Option ${String.fromCharCode(65 + i)}`}
-                            style={{ padding: '2px 4px' }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </div>
-                      <FullQuill
-                        value={opt}
-                        onChange={(val) => {
-                          const newOpts = [...draftOptions];
-                          newOpts[i] = val;
-                          setDraftOptions(newOpts);
-                        }}
-                        placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                        openMathDialog={openMathDialog}
-                        toolbarId={`option-toolbar-${i}`}
-                      />
-                    </div>
-                  ))}
-                  <button
-                    className="btn btn-secondary"
-                    onClick={handleAddOption}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}
-                  >
-                    <Plus size={14} />
-                    Add Option
-                  </button>
-                </div>
-              )}
-              {draftType === 'truefalse' && (
-                <div className="property-field">
-                  <label className="property-label editor-label">Answer</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }}>True</button>
-                    <button className="btn btn-secondary" style={{ flex: 1 }}>False</button>
-                  </div>
-                </div>
-              )}
-              <div className="property-field">
-                <label className="property-label editor-label">Section</label>
-                <select
-                  className="property-input"
-                  value={draftSection}
-                  onChange={(e) => setDraftSection(e.target.value as PaperSection)}
-                >
-                  <option value="A">Section A</option>
-                  <option value="B">Section B</option>
-                  <option value="C">Section C</option>
-                  <option value="D">Section D</option>
-                </select>
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Marks</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={draftMarks}
-                  onChange={(e) => setDraftMarks(parseInt(e.target.value) || 1)}
-                  min={1}
-                />
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Difficulty</label>
-                <select
-                  className="property-input"
-                  value={draftDifficulty}
-                  onChange={(e) => setDraftDifficulty(e.target.value as Difficulty)}
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-              {editingQuestionId ? (
-                <>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleUpdateQuestion}
-                    disabled={saving || !draftContent.trim()}
-                    style={{ width: '100%', marginTop: 8 }}
-                  >
-                    {saving ? 'Updating...' : 'Update Question'}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={resetDraft}
-                    style={{ width: '100%', marginTop: 8 }}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleAddDraftToPaper}
-                    disabled={saving || !draftContent.trim()}
-                    style={{ width: '100%', marginTop: 8 }}
-                  >
-                    {saving ? 'Adding...' : 'Add to Paper'}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={resetDraft}
-                    style={{ width: '100%', marginTop: 8 }}
-                  >
-                    Cancel
-                  </button>
-                </>
-              )}
-            </>
-          )}
-
-          {!draftType && selectedPQ && selectedQuestion && (
-            <>
-              <div className="property-field">
-                <label className="property-label editor-label">Question Content</label>
-                <div className="question-content-preview" dangerouslySetInnerHTML={{ __html: selectedQuestion.content }} />
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Section</label>
-                <select
-                  className="property-input"
-                  value={selectedPQ.section}
-                  onChange={(e) => handleUpdatePQ(selectedPQ.id, e.target.value as PaperSection, selectedPQ.marks)}
-                >
-                  <option value="A">Section A</option>
-                  <option value="B">Section B</option>
-                  <option value="C">Section C</option>
-                  <option value="D">Section D</option>
-                </select>
-              </div>
-              <div className="property-field">
-                <label className="property-label editor-label">Marks</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={selectedPQ.marks}
-                  onChange={(e) => handleUpdatePQ(selectedPQ.id, selectedPQ.section, parseInt(e.target.value) || 1)}
-                  min={1}
-                />
-              </div>
-              <button
-                className="btn btn-primary"
-                onClick={handleEditQuestion}
-                style={{ width: '100%', marginTop: 8 }}
-              >
-                Edit Question Content
-              </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setSelectedPQId(null)}
-                style={{ width: '100%', marginTop: 8 }}
-              >
-                Deselect
-              </button>
-            </>
-          )}
-
-        </div>
-      </div>
-
-      {/* BOTTOM TOOLBAR */}
-      <div className="editor-toolbar">
-        <button className="toolbar-btn primary" onClick={exportPDF}>
-          <Download size={18} />
-          Export PDF
-        </button>
-      </div>
 
       {showToast && (
         <div className="toast-notification">
