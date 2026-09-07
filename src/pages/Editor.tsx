@@ -216,8 +216,8 @@ function SortableQuestion({
                 onClick={(e) => { e.stopPropagation(); onAddQuestionToSection(showSectionHeader); }}
                 title={`Add Question to Section ${showSectionHeader}`}
               >
-                <Plus size={13} />
-                <span>Add Question</span>
+                <GitFork size={13} style={{ transform: 'rotate(90deg)' }} />
+                <span>Subquestion</span>
               </button>
             )}
             {onMoveSectionUp && (
@@ -696,7 +696,7 @@ export default function Editor() {
     setDraftSection(parentPQ.section);
     setDraftMarks(parentPQ.marks || 1);
     setDraftDifficulty(parentQ?.difficulty || 'medium');
-    setDraftTypeHeader(parentQ?.typeHeader || (parentQ ? getTypeHeader(parentQ.questionType) : ''));
+    setDraftTypeHeader(parentQ?.typeHeader || '');
     setEditingQuestionId(null);
     setShowCreatorHub(false);
   };
@@ -726,7 +726,7 @@ export default function Editor() {
     setDraftSection(prev => prev || (selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.section || 'A') : 'A'));
     setDraftMarks(selectedPQId ? (paperQuestionsList.find(pq => pq.id === selectedPQId)?.marks || 1) : 1);
     setDraftDifficulty('medium');
-    setDraftTypeHeader(getTypeHeader(type));
+    setDraftTypeHeader('');
     setSelectedPQId(null);
     setShowCreatorHub(false);
   };
@@ -903,7 +903,7 @@ export default function Editor() {
         q.difficulty,
         q.explanation,
         q.imageUrl,
-        q.typeHeader || getTypeHeader(q.questionType),
+        q.typeHeader || undefined,
       );
       showToastMessage('Question added from bank!');
     } finally {

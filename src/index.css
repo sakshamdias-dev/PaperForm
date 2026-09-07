@@ -2065,7 +2065,7 @@ textarea::placeholder {
   padding-top: 0 !important;
 }
 
-.section-divider span {
+.section-divider > span {
   font-family: var(--font-serif);
   font-size: 15px;
   font-weight: 700;
@@ -2128,8 +2128,8 @@ textarea::placeholder {
 /* Clean rendered question (WYSIWYG) */
 .rendered-question-item {
   position: relative;
-  padding: 6px 0 14px 0;
-  margin-bottom: 6px;
+  padding: 10px 0 16px 0;
+  margin-bottom: 12px;
   border-radius: 0;
   border: none !important;
   cursor: default;
@@ -2140,10 +2140,14 @@ textarea::placeholder {
   page-break-inside: avoid !important;
 }
 
+.rendered-question-item:first-child {
+  padding-top: 4px !important;
+}
+
 @media print {
   .rendered-question-item {
-    padding: 0;
-    margin-bottom: 20px;
+    padding: 6px 0 14px 0 !important;
+    margin-bottom: 16px !important;
     border: none !important;
     background: none !important;
   }
@@ -2162,8 +2166,8 @@ textarea::placeholder {
 
 .q-drag-handle {
   position: absolute;
-  left: -24px;
-  top: 2px;
+  left: -28px;
+  top: 3px;
   color: #94a3b8;
   cursor: grab;
   display: flex;
@@ -2171,11 +2175,14 @@ textarea::placeholder {
   justify-content: center;
   padding: 3px;
   border-radius: 4px;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
   z-index: 2;
+  opacity: 0.6;
 }
 
+.rendered-question-item:hover .q-drag-handle,
 .q-drag-handle:hover {
+  opacity: 1;
   color: #0f172a;
   background: #f1f5f9;
 }
@@ -2183,28 +2190,51 @@ textarea::placeholder {
 .question-card-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.rendered-question-item:hover .question-card-actions {
+  opacity: 1;
 }
 
 .q-subquestion-btn {
-  background: #eef2ff;
-  color: #4f46e5;
+  background: #eef2ff !important;
+  color: #4f46e5 !important;
   border: 1px solid #e0e7ff;
-  border-radius: 5px;
-  padding: 2px 8px;
-  font-size: 11.5px;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 11px !important;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 3.5px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  height: 22px;
+  line-height: 1;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) !important;
+}
+
+.q-subquestion-btn span {
+  color: #4f46e5 !important;
+  font-size: 11px !important;
+  font-family: inherit !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  line-height: 1 !important;
 }
 
 .q-subquestion-btn:hover {
-  background: #e0e7ff;
-  color: #4338ca;
+  background: #e0e7ff !important;
+  color: #4338ca !important;
+}
+
+.q-subquestion-btn:hover span {
+  color: #4338ca !important;
 }
 
 .q-action-icon-btn {
@@ -2212,8 +2242,8 @@ textarea::placeholder {
   color: #64748b;
   border: none;
   border-radius: 4px;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2266,9 +2296,25 @@ textarea::placeholder {
 }
 
 .q-number {
+  font-family: var(--font-serif);
   font-weight: 700;
-  margin-right: 6px;
+  font-size: 14.5px;
+  margin-right: 8px;
   color: var(--text-primary);
+  flex-shrink: 0;
+  line-height: 1.7;
+}
+
+.marks-inline {
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: right;
+  line-height: 1.7;
 }
 
 .q-text {
@@ -2365,8 +2411,9 @@ textarea::placeholder {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 14px;
-  padding-bottom: 6px;
+  margin-top: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 
