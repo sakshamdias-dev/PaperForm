@@ -2320,6 +2320,9 @@ textarea::placeholder {
 .q-text {
   line-height: 1.7;
   white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: normal;
 }
 
 .q-text p {
@@ -2344,6 +2347,7 @@ textarea::placeholder {
   padding: 6px 8px;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  word-break: normal;
   display: table-cell;
 }
 
@@ -2389,6 +2393,9 @@ textarea::placeholder {
   line-height: 1.6;
   color: var(--text-primary);
   white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: normal;
 }
 
 .q-answer-space {

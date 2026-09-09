@@ -216,8 +216,8 @@ function SortableQuestion({
                 onClick={(e) => { e.stopPropagation(); onAddQuestionToSection(showSectionHeader); }}
                 title={`Add Question to Section ${showSectionHeader}`}
               >
-                <GitFork size={13} style={{ transform: 'rotate(90deg)' }} />
-                <span>Subquestion</span>
+                <Plus size={13} />
+                <span>Add Question</span>
               </button>
             )}
             {onMoveSectionUp && (
@@ -696,7 +696,7 @@ export default function Editor() {
     setDraftSection(parentPQ.section);
     setDraftMarks(parentPQ.marks || 1);
     setDraftDifficulty(parentQ?.difficulty || 'medium');
-    setDraftTypeHeader(parentQ?.typeHeader || '');
+    setDraftTypeHeader('');
     setEditingQuestionId(null);
     setShowCreatorHub(false);
   };
@@ -954,9 +954,7 @@ export default function Editor() {
       let questionNumber = 1;
       for (let i = globalIndex - 1; i >= 0; i--) {
         const itemPQ = paperQuestionsList[i];
-        const itemQ = getQuestion(itemPQ.questionId);
-        const itemHeader = itemQ?.typeHeader || '';
-        if (itemPQ.section !== pq.section || itemHeader !== currentHeader) {
+        if (itemPQ.section !== pq.section) {
           break;
         }
         questionNumber++;
