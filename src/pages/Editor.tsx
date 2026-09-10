@@ -108,9 +108,6 @@ const BLOCK_TYPES: { type: QuestionType; label: string; icon: typeof AlignLeft; 
   { type: 'subjective', label: 'Subjective Question', icon: AlignLeft, description: 'Answer the following', header: 'Answer the following:' },
 ];
 
-function getTypeHeader(type: QuestionType): string {
-  return BLOCK_TYPES.find(b => b.type === type)?.header || type;
-}
 
 function stripHtml(html: string): string {
   const tmp = document.createElement('div');
